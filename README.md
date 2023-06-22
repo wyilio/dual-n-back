@@ -12,6 +12,14 @@ More recently, a few [papers](https://pubmed.ncbi.nlm.nih.gov/25867501/) have cl
 
 Although unproven, the game remains a promising area of research. 
 
-Try it out!
+Try it out if you'd like! It's both mentally taxing and fascinating to observe real-time strategies emerge.
 
-If you'd like to read more, check out this [article](https://gwern.net/dnb-faq) by Gwern on the subject. 
+If you'd like to read more, check out this comprehensive [article](https://gwern.net/dnb-faq) by Gwern on the subject. 
+
+# Implementation Details
+
+This project is a product of Bevy, egui, and Rust. If you have proposed changes, feel free to write an issue. 
+
+# Further Features
+
+This project owes its existence to [Brain Workshop](https://brainworkshop.sourceforge.net/). Down the line, it'd be nice to incorporate a few of Brain Workshop's extensive features.
