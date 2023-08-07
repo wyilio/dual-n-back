@@ -22,4 +22,4 @@ This project is a product of Bevy, egui, and Rust. If you have proposed changes,
 
 # Further Features
 
-This project owes its existence to [Brain Workshop](https://brainworkshop.sourceforge.net/). Down the line, it'd be nice to incorporate a few of Brain Workshop's extensive features.
+This project owes its existence to [Brain Workshop](https://brainworkshop.sourceforge.net/). Down the line, it'd be nice to incorporate more of Brain Workshop's extensive features.
