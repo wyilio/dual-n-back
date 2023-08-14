@@ -33,7 +33,7 @@ pub struct OnSettingsScreen;
 pub enum MenuButtonAction {
     Start,
     Settings,
-    Performance,
+    Progress,
 }
 
 const PRESSED_BUTTON: Color = Color::rgb(0.157, 0.157, 0.157);
@@ -154,11 +154,11 @@ pub fn setup_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 background_color: NORMAL_BUTTON.into(),
                                 ..default()
                             },
-                            MenuButtonAction::Performance,
+                            MenuButtonAction::Progress,
                         ))
                         .with_children(|parent| {
                             parent.spawn(TextBundle::from_section(
-                                "Performance",
+                                "Progress",
                                 button_text_style.clone(),
                             ));
                         });
@@ -185,8 +185,8 @@ fn menu_action(
                     app_state.set(AppState::Settings);
                     menu_state.set(MenuState::Disabled);
                 }
-                MenuButtonAction::Performance => {
-                    app_state.set(AppState::Performance);
+                MenuButtonAction::Progress => {
+                    app_state.set(AppState::Progress);
                     menu_state.set(MenuState::Disabled);
                 }
             }

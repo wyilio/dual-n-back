@@ -23,7 +23,7 @@ pub enum AppState {
     Menu,
     Session,
     Settings,
-    Performance,
+    Progress,
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, States, Default)]
