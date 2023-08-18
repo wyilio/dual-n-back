@@ -1,7 +1,7 @@
 use bevy::app::AppExit;
 use bevy::prelude::*;
 
-use crate::{despawn_screen, AppState, SessionState};
+use crate::{colors, despawn_screen, AppState};
 
 pub struct MenuPlugin;
 
@@ -10,7 +10,7 @@ impl Plugin for MenuPlugin {
         app.add_systems(OnEnter(AppState::Menu), setup_menu)
             .add_state::<MenuState>()
             .add_systems(Update, menu_action)
-            .add_systems(Update, button_system.run_if(in_state(AppState::Menu)))
+            .add_systems(Update, menu_button_system.run_if(in_state(AppState::Menu)))
             .add_systems(OnExit(AppState::Menu), despawn_screen::<OnMenuScreen>);
     }
 }
@@ -36,11 +36,7 @@ pub enum MenuButtonAction {
     Progress,
 }
 
-const PRESSED_BUTTON: Color = Color::rgb(0.157, 0.157, 0.157);
-const HOVERED_BUTTON: Color = Color::rgb(0.306, 0.306, 0.306);
-const NORMAL_BUTTON: Color = Color::rgb(0.157, 0.157, 0.157);
-
-pub fn button_system(
+pub fn menu_button_system(
     mut interaction_query: Query<
         (&Interaction, &mut BackgroundColor),
         (Changed<Interaction>, With<Button>),
@@ -48,11 +44,45 @@ pub fn button_system(
 ) {
     for (interaction, mut color) in &mut interaction_query {
         *color = match *interaction {
-            Interaction::Pressed | Interaction::None => PRESSED_BUTTON.into(),
-            Interaction::Hovered => HOVERED_BUTTON.into(),
-            Interaction::None => NORMAL_BUTTON.into(),
+            Interaction::Pressed | Interaction::None => colors::PRESSED_BUTTON_LIGHT.into(),
+            Interaction::Hovered => colors::HOVERED_BUTTON_LIGHT.into(),
+            Interaction::None => colors::PRIMARY_COLOR.into(),
         }
     }
+}
+
+fn spawn_menu_button(
+    builder: &mut ChildBuilder,
+    font: Handle<Font>,
+    text: &str,
+    menu_button_action: MenuButtonAction,
+) {
+    builder
+        .spawn((
+            ButtonBundle {
+                style: Style {
+                    width: Val::Px(250.0),
+                    height: Val::Px(65.0),
+                    margin: UiRect::all(Val::Px(20.0)),
+                    justify_content: JustifyContent::Center,
+                    align_items: AlignItems::Center,
+                    ..default()
+                },
+                background_color: colors::PRIMARY_COLOR.into(),
+                ..Default::default()
+            },
+            menu_button_action,
+        ))
+        .with_children(|parent| {
+            parent.spawn(TextBundle::from_section(
+                text,
+                TextStyle {
+                    font_size: 25.0,
+                    color: Color::rgb(1.0, 1.0, 1.0).into(),
+                    ..default()
+                },
+            ));
+        });
 }
 
 pub fn setup_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
@@ -119,7 +149,7 @@ pub fn setup_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
                         .spawn((
                             ButtonBundle {
                                 style: button_style.clone(),
-                                background_color: NORMAL_BUTTON.into(),
+                                background_color: colors::PRIMARY_COLOR.into(),
                                 ..default()
                             },
                             MenuButtonAction::Start,
@@ -135,7 +165,7 @@ pub fn setup_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
                         .spawn((
                             ButtonBundle {
                                 style: button_style.clone(),
-                                background_color: NORMAL_BUTTON.into(),
+                                background_color: colors::PRIMARY_COLOR.into(),
                                 ..default()
                             },
                             MenuButtonAction::Settings,
@@ -151,7 +181,7 @@ pub fn setup_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
                         .spawn((
                             ButtonBundle {
                                 style: button_style.clone(),
-                                background_color: NORMAL_BUTTON.into(),
+                                background_color: colors::PRIMARY_COLOR.into(),
                                 ..default()
                             },
                             MenuButtonAction::Progress,
@@ -173,13 +203,14 @@ fn menu_action(
     >,
     mut menu_state: ResMut<NextState<MenuState>>,
     mut app_state: ResMut<NextState<AppState>>,
+    // mut session_state: ResMut<NextState<SessionState>>,
 ) {
     for (interaction, menu_button_action) in &interaction_query {
         if *interaction == Interaction::Pressed {
             match menu_button_action {
                 MenuButtonAction::Start => {
-                    app_state.set(AppState::Session);
                     menu_state.set(MenuState::Disabled);
+                    app_state.set(AppState::Session);
                 }
                 MenuButtonAction::Settings => {
                     app_state.set(AppState::Settings);

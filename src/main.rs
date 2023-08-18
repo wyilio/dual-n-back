@@ -2,20 +2,19 @@ use std::time::Duration;
 
 use bevy::prelude::*;
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
+use leafwing_input_manager::prelude::*;
 
+use colors::*;
+use controller::*;
 use menu::*;
 use progress::*;
 use session::*;
-use target::*;
-use title::*;
 
+mod colors;
+mod controller;
 mod menu;
 mod progress;
 mod session;
-mod target;
-mod title;
-
-const BACKGROUND_COLOR: Color = Color::rgb(0.922, 0.922, 0.918);
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, States, Default)]
 pub enum AppState {
@@ -26,14 +25,14 @@ pub enum AppState {
     Progress,
 }
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, States, Default)]
-pub enum SessionState {
-    Active,
-    Paused,
-    Restart,
-    #[default]
-    Inactive,
-}
+// #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, States, Default)]
+// pub enum SessionState {
+//     Active,
+//     Paused,
+//     Restart,
+//     #[default]
+//     Inactive,
+// }
 
 fn setup_camera(mut commands: Commands) {
     commands.spawn(Camera2dBundle::default());
@@ -53,9 +52,10 @@ fn main() {
             TimerMode::Repeating,
         )))
         .add_plugins(DefaultPlugins)
+        // .add_plugins(InputManagerPlugin::<Action>::default())
         .add_plugins(WorldInspectorPlugin::new())
         .add_state::<AppState>()
-        .add_state::<SessionState>()
+        // .add_state::<SessionState>()
         .add_systems(Startup, setup_camera)
         .add_plugins(MenuPlugin)
         .add_plugins(SessionPlugin)
