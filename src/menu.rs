@@ -86,26 +86,6 @@ fn spawn_menu_button(
 }
 
 pub fn setup_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let button_style = Style {
-        width: Val::Px(250.0),
-        height: Val::Px(65.0),
-        margin: UiRect::all(Val::Px(20.0)),
-        justify_content: JustifyContent::Center,
-        align_items: AlignItems::Center,
-        ..default()
-    };
-    let button_icon_style = Style {
-        width: Val::Px(30.0),
-        position_type: PositionType::Absolute,
-        left: Val::Px(10.0),
-        right: Val::Auto,
-        ..default()
-    };
-    let button_text_style = TextStyle {
-        font_size: 25.0,
-        color: Color::rgb(1.0, 1.0, 1.0).into(),
-        ..default()
-    };
     commands
         .spawn((
             NodeBundle {
@@ -121,6 +101,7 @@ pub fn setup_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
             OnMenuScreen,
         ))
         .with_children(|parent| {
+            let menu_font = asset_server.load("fonts/FiraSans-Bold.ttf");
             parent
                 .spawn(NodeBundle {
                     style: Style {
@@ -135,9 +116,9 @@ pub fn setup_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
                         TextBundle::from_section(
                             "Dual-N Back Menu",
                             TextStyle {
-                                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                                font: menu_font.clone(),
                                 font_size: 45.0,
-                                color: Color::rgb(0.153, 0.161, 0.176),
+                                color: colors::TITLE_COLOR,
                             },
                         )
                         .with_style(Style {
@@ -145,53 +126,21 @@ pub fn setup_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
                             ..default()
                         }),
                     );
-                    parent
-                        .spawn((
-                            ButtonBundle {
-                                style: button_style.clone(),
-                                background_color: colors::PRIMARY_COLOR.into(),
-                                ..default()
-                            },
-                            MenuButtonAction::Start,
-                        ))
-                        .with_children(|parent| {
-                            parent.spawn(TextBundle::from_section(
-                                "Start",
-                                button_text_style.clone(),
-                            ));
-                        });
 
-                    parent
-                        .spawn((
-                            ButtonBundle {
-                                style: button_style.clone(),
-                                background_color: colors::PRIMARY_COLOR.into(),
-                                ..default()
-                            },
-                            MenuButtonAction::Settings,
-                        ))
-                        .with_children(|parent| {
-                            parent.spawn(TextBundle::from_section(
-                                "Settings",
-                                button_text_style.clone(),
-                            ));
-                        });
+                    spawn_menu_button(parent, menu_font.clone(), "Start", MenuButtonAction::Start);
 
-                    parent
-                        .spawn((
-                            ButtonBundle {
-                                style: button_style.clone(),
-                                background_color: colors::PRIMARY_COLOR.into(),
-                                ..default()
-                            },
-                            MenuButtonAction::Progress,
-                        ))
-                        .with_children(|parent| {
-                            parent.spawn(TextBundle::from_section(
-                                "Progress",
-                                button_text_style.clone(),
-                            ));
-                        });
+                    spawn_menu_button(
+                        parent,
+                        menu_font.clone(),
+                        "Settings",
+                        MenuButtonAction::Settings,
+                    );
+                    spawn_menu_button(
+                        parent,
+                        menu_font.clone(),
+                        "Progress",
+                        MenuButtonAction::Progress,
+                    );
                 });
         });
 }
