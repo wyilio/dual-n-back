@@ -2,27 +2,36 @@ use crate::{colors, despawn_screen, AppState};
 use bevy::{prelude::*, sprite::MaterialMesh2dBundle};
 use rand::{thread_rng, Rng};
 use std::collections::HashMap;
+use std::time::Duration;
+use strum::IntoEnumIterator;
+use strum_macros::EnumIter;
 
 pub struct SessionPlugin;
 
 impl Plugin for SessionPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(
-            OnEnter(AppState::Session),
-            (setup_grid, setup_stimuli_buttons, setup_targets),
-        )
-        .add_systems(
-            Update,
-            (stimuli_button_system, stimuli_button_action).run_if(in_state(AppState::Session)),
-        )
-        .add_systems(
-            Update,
-            exit_session.run_if(
-                state_exists_and_equals(AppState::Session)
-                    .or_else(state_exists_and_equals(AppState::Menu)),
-            ),
-        )
-        .add_systems(OnExit(AppState::Session), despawn_screen::<OnSessionScreen>);
+        app.insert_resource(TrialTimer(Timer::from_seconds(3.0, TimerMode::Repeating)))
+            .add_systems(
+                OnEnter(AppState::Session),
+                (setup_grid, setup_stimuli_buttons, setup_targets),
+            )
+            .add_systems(
+                Update,
+                (
+                    stimuli_button_system,
+                    stimuli_button_action,
+                    display_target_system,
+                )
+                    .run_if(in_state(AppState::Session)),
+            )
+            .add_systems(
+                Update,
+                exit_session.run_if(
+                    state_exists_and_equals(AppState::Session)
+                        .or_else(state_exists_and_equals(AppState::Menu)),
+                ),
+            )
+            .add_systems(OnExit(AppState::Session), despawn_screen::<OnSessionScreen>);
     }
 }
 
@@ -58,6 +67,7 @@ impl TargetAudio {
     }
 }
 
+#[derive(EnumIter, Component, Debug, Copy, Clone, Eq, PartialEq)]
 pub enum TargetLocation {
     TopLeft,
     TopMiddle,
@@ -282,11 +292,9 @@ pub fn setup_targets(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
-    let target_location = TargetLocation::random();
-    let target_coordinates = get_target_coordinates(target_location);
-
-    commands.spawn(
-        ((
+    for target_location in TargetLocation::iter() {
+        let target_coordinates = get_target_coordinates(target_location);
+        commands.spawn((
             MaterialMesh2dBundle {
                 mesh: meshes.add(Mesh::from(shape::Quad::default())).into(),
                 transform: Transform::from_translation(Vec3::new(
@@ -295,12 +303,36 @@ pub fn setup_targets(
                     0.0,
                 ))
                 .with_scale(Vec3::splat(128.)),
+                visibility: Visibility::Hidden,
                 material: materials.add(ColorMaterial::from(colors::PRIMARY_COLOR)),
                 ..Default::default()
             },
             OnSessionScreen,
-        )),
-    );
+            target_location,
+        ));
+    }
+}
+
+pub fn display_target_system(
+    mut target_query: Query<(&TargetLocation, &mut Visibility), With<TargetLocation>>,
+    mut commands: Commands,
+    time: Res<Time>,
+    mut timer: ResMut<TrialTimer>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
+) {
+    if timer.0.tick(time.delta()).just_finished() {
+        let random_target_location = TargetLocation::random();
+
+        for (target_location, mut visibility) in &mut target_query {
+            if *target_location == random_target_location {
+                *visibility = Visibility::Visible;
+            } else {
+                *visibility = Visibility::Hidden;
+            }
+        }
+        println!("Timer finished");
+    }
 }
 
 pub fn setup_stimuli_buttons(mut commands: Commands, asset_server: Res<AssetServer>) {
