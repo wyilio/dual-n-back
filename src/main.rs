@@ -2,15 +2,18 @@ use std::time::Duration;
 
 use bevy::prelude::*;
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
+use bevy_pkv::PkvStore;
 use leafwing_input_manager::prelude::*;
 
 use colors::*;
+use config::*;
 use controller::*;
 use menu::*;
 use progress::*;
 use session::*;
 
 mod colors;
+mod config;
 mod controller;
 mod menu;
 mod progress;
@@ -37,6 +40,7 @@ pub fn despawn_screen<T: Component>(to_despawn: Query<Entity, With<T>>, mut comm
 
 fn main() {
     App::new()
+        .insert_resource(PkvStore::new("Bevy_DNB", "Bevy_DNB_config"))
         .insert_resource(ClearColor(BACKGROUND_COLOR))
         .insert_resource(TrialTimer(Timer::new(
             Duration::from_millis(3000),
@@ -47,7 +51,8 @@ fn main() {
         .add_plugins(WorldInspectorPlugin::new())
         .add_state::<AppState>()
         // .add_state::<SessionState>()
-        .add_systems(Startup, setup_camera)
+        .add_systems(Startup, (setup_camera))
+        .add_plugins(ConfigPlugin)
         .add_plugins(MenuPlugin)
         .add_plugins(SessionPlugin)
         .run();

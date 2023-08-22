@@ -5,8 +5,10 @@ edition = "2021"
 
 [dependencies]
 bevy-inspector-egui = "0.19"
+bevy_pkv = "0.8.0"
 leafwing-input-manager = "0.10.0"
 rand = "0.8.5"
+serde = "1.0.185"
 strum = "0.25.0"
 strum_macros = "0.25.2"
 

@@ -1,5 +1,6 @@
-use crate::{colors, despawn_screen, AppState};
+use crate::{colors, despawn_screen, AppState, SettingValues};
 use bevy::{prelude::*, sprite::MaterialMesh2dBundle};
+use bevy_pkv::PkvStore;
 use rand::{thread_rng, Rng};
 use std::collections::HashMap;
 use std::time::Duration;
@@ -13,7 +14,12 @@ impl Plugin for SessionPlugin {
         app.insert_resource(TrialTimer(Timer::from_seconds(3.0, TimerMode::Repeating)))
             .add_systems(
                 OnEnter(AppState::Session),
-                (setup_grid, setup_stimuli_buttons, setup_targets),
+                (
+                    setup_grid,
+                    setup_stimuli_buttons,
+                    setup_targets,
+                    setup_trial_count,
+                ),
             )
             .add_systems(
                 Update,
@@ -287,6 +293,28 @@ fn spawn_stimuli_button(
         });
 }
 
+#[derive(Component)]
+pub struct TrialCount;
+
+pub fn setup_trial_count(
+    mut commands: Commands,
+    mut settings: ResMut<SettingValues>,
+    asset_server: Res<AssetServer>,
+) {
+    commands.spawn((
+        TextBundle::from_section(
+            "Trials Left: 20",
+            TextStyle {
+                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                font_size: 40.0,
+                color: colors::PRIMARY_COLOR.into(),
+            },
+        ),
+        OnSessionScreen,
+        TrialCount,
+    ));
+}
+
 pub fn setup_targets(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -319,8 +347,12 @@ pub fn display_target_system(
     time: Res<Time>,
     mut timer: ResMut<TrialTimer>,
     mut meshes: ResMut<Assets<Mesh>>,
+    mut settings: ResMut<SettingValues>,
     mut materials: ResMut<Assets<ColorMaterial>>,
+    mut pkv: ResMut<PkvStore>,
 ) {
+    println!("Trials: {}", settings.trials);
+
     if timer.0.tick(time.delta()).just_finished() {
         let random_target_location = TargetLocation::random();
 
