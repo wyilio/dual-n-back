@@ -24,6 +24,9 @@ pub enum MenuState {
 }
 
 #[derive(Component)]
+pub struct MenuButton;
+
+#[derive(Component)]
 pub struct OnMenuScreen;
 
 #[derive(Component)]
@@ -39,7 +42,7 @@ pub enum MenuButtonAction {
 pub fn menu_button_system(
     mut interaction_query: Query<
         (&Interaction, &mut BackgroundColor),
-        (Changed<Interaction>, With<Button>),
+        (Changed<Interaction>, With<MenuButton>),
     >,
 ) {
     for (interaction, mut color) in &mut interaction_query {
@@ -71,10 +74,11 @@ fn spawn_menu_button(
                 background_color: colors::PRIMARY_COLOR.into(),
                 ..Default::default()
             },
+            MenuButton,
             menu_button_action,
         ))
-        .with_children(|parent| {
-            parent.spawn(TextBundle::from_section(
+        .with_children(|builder| {
+            builder.spawn(TextBundle::from_section(
                 text,
                 TextStyle {
                     font_size: 25.0,
@@ -100,9 +104,9 @@ pub fn setup_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
             },
             OnMenuScreen,
         ))
-        .with_children(|parent| {
+        .with_children(|builder| {
             let menu_font = asset_server.load("fonts/FiraSans-Bold.ttf");
-            parent
+            builder
                 .spawn(NodeBundle {
                     style: Style {
                         flex_direction: FlexDirection::Column,
@@ -111,8 +115,8 @@ pub fn setup_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
                     },
                     ..default()
                 })
-                .with_children(|parent| {
-                    parent.spawn(
+                .with_children(|builder| {
+                    builder.spawn(
                         TextBundle::from_section(
                             "Dual-N Back Menu",
                             TextStyle {
@@ -127,16 +131,16 @@ pub fn setup_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
                         }),
                     );
 
-                    spawn_menu_button(parent, menu_font.clone(), "Start", MenuButtonAction::Start);
+                    spawn_menu_button(builder, menu_font.clone(), "Start", MenuButtonAction::Start);
 
                     spawn_menu_button(
-                        parent,
+                        builder,
                         menu_font.clone(),
                         "Settings",
                         MenuButtonAction::Settings,
                     );
                     spawn_menu_button(
-                        parent,
+                        builder,
                         menu_font.clone(),
                         "Progress",
                         MenuButtonAction::Progress,
@@ -148,11 +152,10 @@ pub fn setup_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
 fn menu_action(
     interaction_query: Query<
         (&Interaction, &MenuButtonAction),
-        (Changed<Interaction>, With<Button>),
+        (Changed<Interaction>, With<MenuButton>),
     >,
     mut menu_state: ResMut<NextState<MenuState>>,
     mut app_state: ResMut<NextState<AppState>>,
-    // mut session_state: ResMut<NextState<SessionState>>,
 ) {
     for (interaction, menu_button_action) in &interaction_query {
         if *interaction == Interaction::Pressed {

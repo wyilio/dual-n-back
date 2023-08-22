@@ -9,7 +9,11 @@ impl Plugin for SessionPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
             OnEnter(AppState::Session),
-            (setup_grid, setup_input_display, stimuli_button_system),
+            (setup_grid, setup_stimuli_buttons, setup_targets),
+        )
+        .add_systems(
+            Update,
+            (stimuli_button_system, stimuli_button_action).run_if(in_state(AppState::Session)),
         )
         .add_systems(
             Update,
@@ -194,14 +198,36 @@ pub fn exit_session(
 pub fn stimuli_button_system(
     mut interaction_query: Query<
         (&Interaction, &mut BackgroundColor),
-        (Changed<Interaction>, With<Button>),
+        (Changed<Interaction>, With<StimuliButton>),
     >,
 ) {
     for (interaction, mut color) in &mut interaction_query {
         *color = match *interaction {
-            Interaction::Pressed | Interaction::None => colors::PRESSED_BUTTON_DARK.into(),
+            Interaction::Pressed => colors::PRESSED_BUTTON_DARK.into(),
             Interaction::Hovered => colors::HOVERED_BUTTON_DARK.into(),
-            Interaction::None => colors::PRIMARY_COLOR.into(),
+            Interaction::None => colors::TRANSPARENT_COLOR.into(),
+        }
+    }
+}
+
+pub fn stimuli_button_action(
+    mut interaction_query: Query<
+        (&Interaction, &mut Visibility, &StimuliButtonAction),
+        (Changed<Interaction>, With<StimuliButton>),
+    >,
+) {
+    for (interaction, mut visibility, stimuli_button_action) in &mut interaction_query {
+        match *interaction {
+            Interaction::Pressed => {
+                *visibility = Visibility::Hidden;
+
+                if let StimuliButtonAction::MatchPosition = *stimuli_button_action {
+                    println!("Match position");
+                } else if let StimuliButtonAction::MatchAudio = *stimuli_button_action {
+                    println!("Match audio");
+                }
+            }
+            _ => {}
         }
     }
 }
@@ -212,21 +238,33 @@ pub enum StimuliButtonAction {
     MatchAudio,
 }
 
-fn spawn_stimuli_button(builder: &mut ChildBuilder, font: Handle<Font>, text: &str) {
+#[derive(Component)]
+pub struct StimuliButton;
+
+fn spawn_stimuli_button(
+    builder: &mut ChildBuilder,
+    font: Handle<Font>,
+    text: &str,
+    action: StimuliButtonAction,
+) {
     builder
-        .spawn(ButtonBundle {
-            style: Style {
-                width: Val::Px(150.0),
-                justify_content: JustifyContent::Center,
-                border: UiRect::all(Val::Px(2.0)),
-                padding: UiRect::all(Val::Px(5.0)),
-                margin: UiRect::all(Val::Px(20.0)),
+        .spawn((
+            ButtonBundle {
+                style: Style {
+                    width: Val::Px(150.0),
+                    justify_content: JustifyContent::Center,
+                    border: UiRect::all(Val::Px(2.0)),
+                    padding: UiRect::all(Val::Px(5.0)),
+                    margin: UiRect::all(Val::Px(20.0)),
+                    ..Default::default()
+                },
+                background_color: colors::TRANSPARENT_COLOR.into(),
+                border_color: colors::PRIMARY_COLOR.into(),
                 ..Default::default()
             },
-            background_color: Color::rgba(0., 0., 0., 0.).into(),
-            border_color: colors::PRIMARY_COLOR.into(),
-            ..Default::default()
-        })
+            StimuliButton,
+            action,
+        ))
         .with_children(|builder| {
             builder.spawn(TextBundle::from_section(
                 text,
@@ -239,21 +277,35 @@ fn spawn_stimuli_button(builder: &mut ChildBuilder, font: Handle<Font>, text: &s
         });
 }
 
-pub fn setup_input_display(
+pub fn setup_targets(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
-    asset_server: Res<AssetServer>,
 ) {
-    let label_text_style = TextStyle {
-        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-        font_size: 40.0,
-        color: Color::rgb(0.153, 0.161, 0.176),
-    };
-
-    let font = asset_server.load("fonts/FiraSans-Bold.ttf");
     let target_location = TargetLocation::random();
     let target_coordinates = get_target_coordinates(target_location);
+
+    commands.spawn(
+        ((
+            MaterialMesh2dBundle {
+                mesh: meshes.add(Mesh::from(shape::Quad::default())).into(),
+                transform: Transform::from_translation(Vec3::new(
+                    target_coordinates.0,
+                    target_coordinates.1 + VERTICAL_OFFSET,
+                    0.0,
+                ))
+                .with_scale(Vec3::splat(128.)),
+                material: materials.add(ColorMaterial::from(colors::PRIMARY_COLOR)),
+                ..Default::default()
+            },
+            OnSessionScreen,
+        )),
+    );
+}
+
+pub fn setup_stimuli_buttons(mut commands: Commands, asset_server: Res<AssetServer>) {
+    let font = asset_server.load("fonts/FiraSans-Bold.ttf");
+
     commands
         .spawn((
             NodeBundle {
@@ -280,25 +332,18 @@ pub fn setup_input_display(
                     ..Default::default()
                 })
                 .with_children(|builder| {
-                    spawn_stimuli_button(builder, font.clone(), "Position");
-                    spawn_stimuli_button(builder, font.clone(), "Audio");
+                    spawn_stimuli_button(
+                        builder,
+                        font.clone(),
+                        "Position",
+                        StimuliButtonAction::MatchPosition,
+                    );
+                    spawn_stimuli_button(
+                        builder,
+                        font.clone(),
+                        "Audio",
+                        StimuliButtonAction::MatchAudio,
+                    );
                 });
         });
-
-    commands.spawn(
-        ((
-            MaterialMesh2dBundle {
-                mesh: meshes.add(Mesh::from(shape::Quad::default())).into(),
-                transform: Transform::from_translation(Vec3::new(
-                    target_coordinates.0,
-                    target_coordinates.1 + VERTICAL_OFFSET,
-                    0.0,
-                ))
-                .with_scale(Vec3::splat(128.)),
-                material: materials.add(ColorMaterial::from(colors::PRIMARY_COLOR)),
-                ..Default::default()
-            },
-            OnSessionScreen,
-        )),
-    );
 }

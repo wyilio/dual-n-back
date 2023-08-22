@@ -25,15 +25,6 @@ pub enum AppState {
     Progress,
 }
 
-// #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, States, Default)]
-// pub enum SessionState {
-//     Active,
-//     Paused,
-//     Restart,
-//     #[default]
-//     Inactive,
-// }
-
 fn setup_camera(mut commands: Commands) {
     commands.spawn(Camera2dBundle::default());
 }
