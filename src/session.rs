@@ -1,6 +1,5 @@
 use crate::{colors, despawn_screen, AppState, SettingValues};
 use bevy::{prelude::*, sprite::MaterialMesh2dBundle};
-use bevy_pkv::PkvStore;
 use rand::{thread_rng, Rng};
 use std::collections::HashMap;
 use std::time::Duration;
@@ -18,7 +17,7 @@ impl Plugin for SessionPlugin {
                     setup_grid,
                     setup_stimuli_buttons,
                     setup_targets,
-                    setup_trial_count,
+                    setup_trial,
                 ),
             )
             .add_systems(
@@ -27,6 +26,9 @@ impl Plugin for SessionPlugin {
                     stimuli_button_system,
                     stimuli_button_action,
                     display_target_system,
+                    target_transition_system,
+                    trial_progression_system,
+                    trial_count_system,
                 )
                     .run_if(in_state(AppState::Session)),
             )
@@ -293,26 +295,49 @@ fn spawn_stimuli_button(
         });
 }
 
-#[derive(Component)]
-pub struct TrialCount;
+#[derive(Resource)]
+pub struct TrialCount(pub u32);
 
-pub fn setup_trial_count(
+#[derive(Component)]
+pub struct TrialLabel;
+
+pub fn setup_trial(
     mut commands: Commands,
     mut settings: ResMut<SettingValues>,
     asset_server: Res<AssetServer>,
 ) {
+    commands.insert_resource(TrialCount(settings.trials));
+
     commands.spawn((
         TextBundle::from_section(
-            "Trials Left: 20",
+            "Trials Left: ",
             TextStyle {
                 font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                 font_size: 40.0,
                 color: colors::PRIMARY_COLOR.into(),
             },
-        ),
+        )
+        .with_style(Style {
+            position_type: PositionType::Absolute,
+            margin: UiRect::all(Val::Px(30.0)),
+            ..Default::default()
+        }),
         OnSessionScreen,
-        TrialCount,
+        TrialLabel,
     ));
+}
+
+pub fn trial_count_system(
+    mut commands: Commands,
+    mut trial_label_query: Query<(&mut Text), (With<TrialLabel>)>,
+    mut trial_count: ResMut<TrialCount>,
+    mut settings: ResMut<SettingValues>,
+) {
+    if trial_count.is_changed() {
+        for mut text in &mut trial_label_query {
+            text.sections[0].value = format!("Trials Left: {}", trial_count.0);
+        }
+    }
 }
 
 pub fn setup_targets(
@@ -336,34 +361,65 @@ pub fn setup_targets(
                 ..Default::default()
             },
             OnSessionScreen,
+            DisplayTargetTime {
+                timer: Timer::default(),
+            },
             target_location,
         ));
     }
 }
 
+#[derive(Component)]
+pub struct DisplayTargetTime {
+    pub timer: Timer,
+}
+
 pub fn display_target_system(
+    mut commands: Commands,
     mut target_query: Query<(&TargetLocation, &mut Visibility), With<TargetLocation>>,
+) {
+}
+
+pub fn trial_progression_system(
+    mut target_query: Query<
+        (&TargetLocation, &mut Visibility, &mut DisplayTargetTime),
+        With<TargetLocation>,
+    >,
     mut commands: Commands,
     time: Res<Time>,
     mut timer: ResMut<TrialTimer>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut settings: ResMut<SettingValues>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
-    mut pkv: ResMut<PkvStore>,
+    mut trial_count: ResMut<TrialCount>,
+    mut app_state: ResMut<NextState<AppState>>,
 ) {
-    println!("Trials: {}", settings.trials);
-
     if timer.0.tick(time.delta()).just_finished() {
         let random_target_location = TargetLocation::random();
 
-        for (target_location, mut visibility) in &mut target_query {
+        for (target_location, mut visibility, mut display_target_time) in &mut target_query {
             if *target_location == random_target_location {
                 *visibility = Visibility::Visible;
+                display_target_time.timer = Timer::from_seconds(0.5, TimerMode::Once);
             } else {
                 *visibility = Visibility::Hidden;
             }
         }
-        println!("Timer finished");
+
+        if trial_count.0 == 0 {
+            app_state.set(AppState::Menu);
+        } else {
+            *trial_count = TrialCount(trial_count.0 - 1);
+        }
+    }
+}
+
+pub fn target_transition_system(
+    mut target_query: Query<(&mut Visibility, &mut DisplayTargetTime), With<TargetLocation>>,
+    mut commands: Commands,
+    time: Res<Time>,
+) {
+    for (mut visibility, mut display_target_time) in &mut target_query {
+        if display_target_time.timer.tick(time.delta()).just_finished() {
+            *visibility = Visibility::Hidden;
+        }
     }
 }
 
@@ -391,6 +447,7 @@ pub fn setup_stimuli_buttons(mut commands: Commands, asset_server: Res<AssetServ
                     style: Style {
                         flex_direction: FlexDirection::Row,
                         column_gap: Val::Px(2.0 * CELL_SIZE),
+                        position_type: PositionType::Absolute,
                         ..Default::default()
                     },
                     ..Default::default()
