@@ -25,7 +25,7 @@ impl Plugin for SessionPlugin {
                 (
                     stimuli_button_system,
                     stimuli_button_action,
-                    display_target_system,
+                    stimuli_visibility_system,
                     target_transition_system,
                     trial_progression_system,
                     trial_count_system,
@@ -230,14 +230,14 @@ pub fn stimuli_button_system(
 
 pub fn stimuli_button_action(
     mut interaction_query: Query<
-        (&Interaction, &mut Visibility, &StimuliButtonAction),
+        (&Interaction, &mut VisibilityState, &StimuliButtonAction),
         (Changed<Interaction>, With<StimuliButton>),
     >,
 ) {
-    for (interaction, mut visibility, stimuli_button_action) in &mut interaction_query {
+    for (interaction, mut visibility_state, stimuli_button_action) in &mut interaction_query {
         match *interaction {
             Interaction::Pressed => {
-                *visibility = Visibility::Hidden;
+                *visibility_state = VisibilityState::Hidden;
 
                 if let StimuliButtonAction::MatchPosition = *stimuli_button_action {
                     println!("Match position");
@@ -254,6 +254,12 @@ pub fn stimuli_button_action(
 pub enum StimuliButtonAction {
     MatchPosition,
     MatchAudio,
+}
+
+#[derive(Component)]
+pub enum VisibilityState {
+    Visible,
+    Hidden,
 }
 
 #[derive(Component)]
@@ -281,6 +287,7 @@ fn spawn_stimuli_button(
                 ..Default::default()
             },
             StimuliButton,
+            VisibilityState::Visible,
             action,
         ))
         .with_children(|builder| {
@@ -374,10 +381,15 @@ pub struct DisplayTargetTime {
     pub timer: Timer,
 }
 
-pub fn display_target_system(
-    mut commands: Commands,
-    mut target_query: Query<(&TargetLocation, &mut Visibility), With<TargetLocation>>,
+pub fn stimuli_visibility_system(
+    mut stimuli_button_query: Query<(&mut Visibility, &VisibilityState), Changed<VisibilityState>>,
 ) {
+    for (mut button_visibility, visibility_state) in &mut stimuli_button_query {
+        *button_visibility = match *visibility_state {
+            VisibilityState::Visible => Visibility::Visible,
+            VisibilityState::Hidden => Visibility::Hidden,
+        }
+    }
 }
 
 pub fn trial_progression_system(
@@ -385,6 +397,7 @@ pub fn trial_progression_system(
         (&TargetLocation, &mut Visibility, &mut DisplayTargetTime),
         With<TargetLocation>,
     >,
+    mut stimuli_button_query: Query<&mut VisibilityState, With<StimuliButton>>,
     mut commands: Commands,
     time: Res<Time>,
     mut timer: ResMut<TrialTimer>,
@@ -394,13 +407,17 @@ pub fn trial_progression_system(
     if timer.0.tick(time.delta()).just_finished() {
         let random_target_location = TargetLocation::random();
 
-        for (target_location, mut visibility, mut display_target_time) in &mut target_query {
+        for (target_location, mut target_visibility, mut display_target_time) in &mut target_query {
             if *target_location == random_target_location {
-                *visibility = Visibility::Visible;
+                *target_visibility = Visibility::Visible;
                 display_target_time.timer = Timer::from_seconds(0.5, TimerMode::Once);
             } else {
-                *visibility = Visibility::Hidden;
+                *target_visibility = Visibility::Hidden;
             }
+        }
+
+        for (mut stimuli_button_visibility) in &mut stimuli_button_query {
+            *stimuli_button_visibility = VisibilityState::Visible;
         }
 
         if trial_count.0 == 0 {
