@@ -136,7 +136,7 @@ fn setup_scoreboard(
             OnMenuScreen,
         ))
         .with_children(|builder| {
-            let font = asset_server.load("fonts/FiraSans.ttf");
+            let font = asset_server.load("fonts/FiraSans-Regular.ttf");
             builder.spawn(
                 TextBundle::from_section(
                     "Scoreboard:",
