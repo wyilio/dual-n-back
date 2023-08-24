@@ -230,14 +230,14 @@ pub fn stimuli_button_system(
 
 pub fn stimuli_button_action(
     mut interaction_query: Query<
-        (&Interaction, &mut VisibilityState, &StimuliButtonAction),
+        (&Interaction, &mut MatchState, &StimuliButtonAction),
         (Changed<Interaction>, With<StimuliButton>),
     >,
 ) {
     for (interaction, mut visibility_state, stimuli_button_action) in &mut interaction_query {
         match *interaction {
             Interaction::Pressed => {
-                *visibility_state = VisibilityState::Hidden;
+                *visibility_state = MatchState::NonResponse;
 
                 if let StimuliButtonAction::MatchPosition = *stimuli_button_action {
                     println!("Match position");
@@ -257,9 +257,9 @@ pub enum StimuliButtonAction {
 }
 
 #[derive(Component)]
-pub enum VisibilityState {
-    Visible,
-    Hidden,
+pub enum MatchState {
+    Match,
+    NonResponse,
 }
 
 #[derive(Component)]
@@ -287,7 +287,7 @@ fn spawn_stimuli_button(
                 ..Default::default()
             },
             StimuliButton,
-            VisibilityState::Visible,
+            MatchState::NonResponse,
             action,
         ))
         .with_children(|builder| {
@@ -382,12 +382,12 @@ pub struct DisplayTargetTime {
 }
 
 pub fn stimuli_visibility_system(
-    mut stimuli_button_query: Query<(&mut Visibility, &VisibilityState), Changed<VisibilityState>>,
+    mut stimuli_button_query: Query<(&mut Visibility, &MatchState), Changed<MatchState>>,
 ) {
     for (mut button_visibility, visibility_state) in &mut stimuli_button_query {
         *button_visibility = match *visibility_state {
-            VisibilityState::Visible => Visibility::Visible,
-            VisibilityState::Hidden => Visibility::Hidden,
+            MatchState::Match => Visibility::Visible,
+            MatchState::NonResponse => Visibility::Hidden,
         }
     }
 }
@@ -397,7 +397,7 @@ pub fn trial_progression_system(
         (&TargetLocation, &mut Visibility, &mut DisplayTargetTime),
         With<TargetLocation>,
     >,
-    mut stimuli_button_query: Query<&mut VisibilityState, With<StimuliButton>>,
+    mut stimuli_button_query: Query<&mut MatchState, With<StimuliButton>>,
     mut commands: Commands,
     time: Res<Time>,
     mut timer: ResMut<TrialTimer>,
@@ -417,7 +417,7 @@ pub fn trial_progression_system(
         }
 
         for (mut stimuli_button_visibility) in &mut stimuli_button_query {
-            *stimuli_button_visibility = VisibilityState::Visible;
+            *stimuli_button_visibility = MatchState::Match;
         }
 
         if trial_count.0 == 0 {
