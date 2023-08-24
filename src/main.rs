@@ -6,15 +6,15 @@ use bevy_pkv::PkvStore;
 use leafwing_input_manager::prelude::*;
 
 use colors::*;
-use config::*;
 use controller::*;
+use database::*;
 use menu::*;
 use progress::*;
 use session::*;
 
 mod colors;
-mod config;
 mod controller;
+mod database;
 mod menu;
 mod progress;
 mod session;
@@ -52,7 +52,7 @@ fn main() {
         .add_state::<AppState>()
         // .add_state::<SessionState>()
         .add_systems(Startup, (setup_camera))
-        .add_plugins(ConfigPlugin)
+        .add_plugins(DatabasePlugin)
         .add_plugins(MenuPlugin)
         .add_plugins(SessionPlugin)
         .run();

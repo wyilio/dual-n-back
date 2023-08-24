@@ -287,6 +287,7 @@ fn spawn_stimuli_button(
                 ..Default::default()
             },
             StimuliButton,
+            OnSessionScreen,
             MatchState::NonResponse,
             action,
         ))
@@ -310,7 +311,7 @@ pub struct TrialLabel;
 
 pub fn setup_trial(
     mut commands: Commands,
-    mut settings: ResMut<SettingValues>,
+    settings: Res<SettingValues>,
     asset_server: Res<AssetServer>,
 ) {
     commands.insert_resource(TrialCount(settings.trials));
@@ -338,7 +339,6 @@ pub fn trial_count_system(
     mut commands: Commands,
     mut trial_label_query: Query<(&mut Text), (With<TrialLabel>)>,
     mut trial_count: ResMut<TrialCount>,
-    mut settings: ResMut<SettingValues>,
 ) {
     if trial_count.is_changed() {
         for mut text in &mut trial_label_query {
@@ -458,7 +458,6 @@ pub fn setup_stimuli_buttons(mut commands: Commands, asset_server: Res<AssetServ
             OnSessionScreen,
         ))
         .with_children(|builder| {
-            // spawn the key
             builder
                 .spawn(NodeBundle {
                     style: Style {

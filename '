@@ -7,9 +7,9 @@ pub struct SettingValues {
     pub trials: u32,
 }
 
-pub struct ConfigPlugin;
+pub struct DatabasePlugin;
 
-impl Plugin for ConfigPlugin {
+impl Plugin for DatabasePlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(SettingValues::default())
             .add_systems(Startup, setup_config);

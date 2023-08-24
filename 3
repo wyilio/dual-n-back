@@ -1,7 +1,7 @@
 use bevy::app::AppExit;
 use bevy::prelude::*;
 
-use crate::{colors, despawn_screen, AppState, StatValues};
+use crate::{colors, despawn_screen, AppState};
 
 pub struct MenuPlugin;
 
@@ -89,43 +89,17 @@ fn spawn_menu_button(
         });
 }
 
-fn spawn_stat(builder: &mut ChildBuilder, font: Handle<Font>, text: &str, value: String) {
-    builder.spawn(TextBundle::from_section(
-        format!("{}: {}", text, value),
-        TextStyle {
-            font_size: 20.0,
-            color: colors::PRIMARY_COLOR,
-            ..default()
-        },
-    ));
-}
-
-fn spawn_spacer(builder: &mut ChildBuilder) {
-    builder.spawn(TextBundle::from_section(
-        format!(" "),
-        TextStyle {
-            font_size: 20.0,
-            ..default()
-        },
-    ));
-}
-
-fn setup_scoreboard(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    stats: Res<StatValues>,
-) {
+fn setup_scoreboard(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands
         .spawn((
             NodeBundle {
                 style: Style {
-                    width: Val::Px(280.0),
-                    height: Val::Px(400.0),
+                    width: Val::Px(200.0),
+                    height: Val::Px(500.0),
                     margin: UiRect::all(Val::Px(40.0)),
-                    padding: UiRect::top(Val::Px(10.0)),
                     position_type: PositionType::Absolute,
                     flex_direction: FlexDirection::Column,
-                    border: UiRect::all(Val::Px(1.5)),
+                    border: UiRect::all(Val::Px(2.0)),
                     align_items: AlignItems::Center,
                     justify_content: JustifyContent::Start,
                     ..default()
@@ -136,60 +110,16 @@ fn setup_scoreboard(
             OnMenuScreen,
         ))
         .with_children(|builder| {
-            let font = asset_server.load("fonts/FiraSans.ttf");
             builder.spawn(
                 TextBundle::from_section(
-                    "Scoreboard:",
+                    "Scoreboard",
                     TextStyle {
                         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                         font_size: 25.0,
-                        color: colors::PRIMARY_COLOR,
+                        color: colors::TITLE_COLOR,
                     },
                 )
-                .with_style(Style {
-                    margin: UiRect::bottom(Val::Px(20.0)),
-                    ..default()
-                }),
-            );
-
-            spawn_stat(
-                builder,
-                font.clone(),
-                "Current Level",
-                stats.current_level.to_string(),
-            );
-            spawn_stat(
-                builder,
-                font.clone(),
-                "Average Level Today",
-                stats.average_level_today.to_string(),
-            );
-            spawn_stat(
-                builder,
-                font.clone(),
-                "Sessions Today",
-                stats.sessions_today.to_string(),
-            );
-
-            spawn_spacer(builder);
-
-            spawn_stat(
-                builder,
-                font.clone(),
-                "Total Sessions",
-                stats.total_sessions.to_string(),
-            );
-            spawn_stat(
-                builder,
-                font.clone(),
-                "Total Days",
-                stats.total_days.to_string(),
-            );
-            spawn_stat(
-                builder,
-                font.clone(),
-                "Total Time",
-                stats.total_time.to_string(),
+                .with_style(Style { ..default() }),
             );
         });
 }
