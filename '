@@ -313,12 +313,6 @@ pub struct TrialCount {
     pub total_count: u32,
 }
 
-#[derive(Resource)]
-pub struct Score {
-    pub position_correct: u32,
-    pub audio_correct: u32,
-}
-
 #[derive(Component)]
 pub struct TrialLabel;
 
@@ -346,10 +340,6 @@ pub fn setup_trial(
         .collect::<Vec<(TargetLocation, TargetAudio)>>();
 
     commands.insert_resource(StimuliGeneration { stimuli: stimuli });
-    commands.insert_resource(Score {
-        position_correct: 0,
-        audio_correct: 0,
-    });
 
     commands.spawn((
         TextBundle::from_section(
@@ -442,20 +432,21 @@ pub fn trial_progression_system(
     mut trial_count: ResMut<TrialCount>,
     mut app_state: ResMut<NextState<AppState>>,
 ) {
-    let generation_index =
-        (trial_count.total_count - trial_count.current_count) % stats.current_level;
-    let mut new_stimuli = Vec::new();
-
     if timer.0.tick(time.delta()).just_finished() {
-        if generation_index == 0 && trial_count.current_count != trial_count.total_count {
-            println!("Running randomization");
+        let generation_index =
+            (trial_count.total_count - trial_count.current_count) % stats.current_level;
 
+        println!("Generation index: {}", generation_index);
+        println!("Current: {:?}", stimuli_generation.stimuli);
+
+        if generation_index == 0 && trial_count.current_count != trial_count.total_count {
             for (mut stimuli_button_visibility) in &mut stimuli_button_query {
                 *stimuli_button_visibility = MatchState::NonResponse;
             }
 
             let mut rng = rand::thread_rng();
 
+            let mut new_stimuli = Vec::new();
             let n_level = stats.current_level as usize;
 
             for i in 0..n_level {
@@ -466,18 +457,17 @@ pub fn trial_progression_system(
                 if location_roll < (settings.chance_of_guaranteed_match / 100.0) {
                     target_location = stimuli_generation.stimuli[i].0;
                     println!("Guaranteed location match: {:?}", target_location);
-                } else if n_level != 1
-                    && location_roll
-                        < ((settings.chance_of_guaranteed_match + settings.chance_of_interference)
-                            / 100.0)
-                {
-                    let left_back_roll: f32 = rng.gen();
-                    if (i == n_level - 1) || left_back_roll < 0.5 && i != 0 {
-                        target_location = stimuli_generation.stimuli[i - 1].0;
-                    } else {
-                        target_location = stimuli_generation.stimuli[i + 1].0;
+                } else {
+                    location_roll = rng.gen();
+                    if n_level != 1 && location_roll < (settings.chance_of_interference / 100.0) {
+                        let left_back_roll: f32 = rng.gen();
+                        if (i == n_level - 1) || left_back_roll < 0.5 && i != 0 {
+                            target_location = stimuli_generation.stimuli[i - 1].0;
+                        } else {
+                            target_location = stimuli_generation.stimuli[i + 1].0;
+                        }
+                        println!("Interference location match: {:?}", target_location);
                     }
-                    println!("Interference location match: {:?}", target_location);
                 }
 
                 // TODO: Remove code duplication
@@ -485,34 +475,26 @@ pub fn trial_progression_system(
                 if audio_roll < (settings.chance_of_guaranteed_match / 100.0) {
                     target_audio = stimuli_generation.stimuli[i].1;
                     println!("Guaranteed audio match: {:?}", target_audio);
-                } else if n_level != 1
-                    && audio_roll
-                        < ((settings.chance_of_guaranteed_match + settings.chance_of_interference)
-                            / 100.0)
-                {
-                    let left_back_roll: f32 = rng.gen();
-                    if (i == n_level - 1) || left_back_roll < 0.5 && i != 0 {
-                        target_audio = stimuli_generation.stimuli[i - 1].1;
-                    } else {
-                        target_audio = stimuli_generation.stimuli[i + 1].1;
+                } else {
+                    audio_roll = rng.gen();
+                    if n_level != 1 && audio_roll < (settings.chance_of_interference / 100.0) {
+                        let left_back_roll: f32 = rng.gen();
+                        if (i == n_level - 10) || left_back_roll < 0.5 && i != 0 {
+                            target_audio = stimuli_generation.stimuli[i - 1].1;
+                        } else {
+                            target_audio = stimuli_generation.stimuli[i + 1].1;
+                        }
                     }
                 }
                 new_stimuli.push((target_location, target_audio));
             }
             commands.insert_resource(StimuliGeneration {
-                stimuli: new_stimuli.clone(),
+                stimuli: new_stimuli,
             });
         }
 
         for (target_location, mut target_visibility, mut display_target_time) in &mut target_query {
-            let mut current_stimuli = &stimuli_generation.stimuli[generation_index as usize];
-            if generation_index == 0 && trial_count.current_count != trial_count.total_count {
-                current_stimuli = &new_stimuli[0]
-            }
-
-            if *target_location == current_stimuli.0 {
-                println!("Generation index: {}", generation_index);
-                println!("Current: {:?}, ", current_stimuli);
+            if *target_location == stimuli_generation.stimuli[generation_index as usize].0 {
                 *target_visibility = Visibility::Visible;
                 display_target_time.timer = Timer::from_seconds(0.5, TimerMode::Once);
             } else {

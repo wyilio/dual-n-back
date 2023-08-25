@@ -59,7 +59,7 @@ pub struct StatValues {
 impl Default for StatValues {
     fn default() -> Self {
         Self {
-            current_level: 1,
+            current_level: 2,
             average_level_today: 0.0,
             sessions_today: 0,
             total_sessions: 0,
