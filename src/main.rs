@@ -42,10 +42,6 @@ fn main() {
     App::new()
         .insert_resource(PkvStore::new("Bevy_DNB", "Bevy_DNB_config"))
         .insert_resource(ClearColor(BACKGROUND_COLOR))
-        .insert_resource(TrialTimer(Timer::new(
-            Duration::from_millis(3000),
-            TimerMode::Repeating,
-        )))
         .add_plugins(DefaultPlugins)
         // .add_plugins(InputManagerPlugin::<Action>::default())
         .add_plugins(WorldInspectorPlugin::new())

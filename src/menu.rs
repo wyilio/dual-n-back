@@ -1,5 +1,5 @@
 use bevy::app::AppExit;
-use bevy::prelude::*;
+use bevy::{prelude::*, window::WindowResized};
 
 use crate::{colors, despawn_screen, AppState, StatValues};
 
@@ -9,8 +9,11 @@ impl Plugin for MenuPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(OnEnter(AppState::Menu), (setup_menu, setup_scoreboard))
             .add_state::<MenuState>()
-            .add_systems(Update, menu_action)
-            .add_systems(Update, menu_button_system.run_if(in_state(AppState::Menu)))
+            .add_systems(
+                Update,
+                (menu_button_system, menu_action, window_resize_system)
+                    .run_if(in_state(AppState::Menu)),
+            )
             .add_systems(OnExit(AppState::Menu), despawn_screen::<OnMenuScreen>);
     }
 }
@@ -37,6 +40,21 @@ pub enum MenuButtonAction {
     Start,
     Settings,
     Progress,
+}
+
+pub fn window_resize_system(
+    mut q: Query<&mut Visibility, With<Scoreboard>>,
+    mut resize_reader: EventReader<WindowResized>,
+) {
+    let mut visibility = q.single_mut();
+
+    for e in resize_reader.iter() {
+        if e.width < 1000.0 {
+            *visibility = Visibility::Hidden;
+        } else {
+            *visibility = Visibility::Visible;
+        }
+    }
 }
 
 pub fn menu_button_system(
@@ -110,6 +128,9 @@ fn spawn_spacer(builder: &mut ChildBuilder) {
     ));
 }
 
+#[derive(Component)]
+pub struct Scoreboard;
+
 fn setup_scoreboard(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
@@ -134,6 +155,7 @@ fn setup_scoreboard(
                 ..default()
             },
             OnMenuScreen,
+            Scoreboard,
         ))
         .with_children(|builder| {
             let font = asset_server.load("fonts/FiraSans-Regular.ttf");

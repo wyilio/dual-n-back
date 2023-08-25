@@ -21,19 +21,27 @@ pub enum Mode {
 
 #[derive(Debug, Resource, Serialize, Deserialize)]
 pub struct SettingValues {
-    pub trials: u32,
+    pub base_trials: u32,
+    pub trial_factor: u32,
+    pub trial_exponent: u32,
     pub mode: Mode,
-    pub raise_threshold: u32,
-    pub lower_threshold: u32,
+    pub raise_threshold: f32,
+    pub lower_threshold: f32,
+    pub chance_of_interference: f32,
+    pub chance_of_guaranteed_match: f32,
 }
 
 impl Default for SettingValues {
     fn default() -> Self {
         Self {
-            trials: 20,
+            base_trials: 20,
+            trial_factor: 1,
+            trial_exponent: 2,
             mode: Mode::Auto,
-            raise_threshold: 80,
-            lower_threshold: 50,
+            raise_threshold: 80.0,
+            lower_threshold: 50.0,
+            chance_of_interference: 12.5,
+            chance_of_guaranteed_match: 12.5,
         }
     }
 }

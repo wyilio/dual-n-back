@@ -1,7 +1,8 @@
-use crate::{colors, despawn_screen, AppState, SettingValues};
+use crate::{colors, despawn_screen, AppState, SettingValues, StatValues};
 use bevy::{prelude::*, sprite::MaterialMesh2dBundle};
 use rand::{thread_rng, Rng};
 use std::collections::HashMap;
+use std::iter;
 use std::time::Duration;
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
@@ -48,6 +49,7 @@ pub const VERTICAL_OFFSET: f32 = 75.0;
 pub const GRID_THICKNESS: f32 = 2.0;
 pub const GRID_LENGTH: f32 = 3.0 * CELL_SIZE;
 
+#[derive(EnumIter, Component, Debug, Copy, Clone, Eq, PartialEq)]
 pub enum TargetAudio {
     C,
     H,
@@ -63,10 +65,11 @@ impl TargetAudio {
     fn random() -> Self {
         let mut rng = rand::thread_rng();
         match rng.gen_range(0..8) {
-            1 => TargetAudio::C,
-            2 => TargetAudio::H,
-            3 => TargetAudio::K,
-            4 => TargetAudio::L,
+            0 => TargetAudio::C,
+            1 => TargetAudio::H,
+            2 => TargetAudio::K,
+            3 => TargetAudio::L,
+            4 => TargetAudio::Q,
             5 => TargetAudio::R,
             6 => TargetAudio::S,
             7 => TargetAudio::T,
@@ -137,13 +140,15 @@ pub fn setup_grid(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
+    let grid_sprite = Sprite {
+        color: colors::SECONDARY_COLOR,
+        custom_size: Some(Vec2::new(GRID_LENGTH, GRID_LENGTH)),
+        ..Default::default()
+    };
+
     commands.spawn((
         SpriteBundle {
-            sprite: Sprite {
-                color: colors::SECONDARY_COLOR,
-                custom_size: Some(Vec2::new(GRID_THICKNESS, GRID_LENGTH)),
-                ..Default::default()
-            },
+            sprite: grid_sprite.clone(),
             transform: Transform::from_translation(Vec3::new(CELL_SIZE / 2.0, VERTICAL_OFFSET, 0.)),
             ..Default::default()
         },
@@ -151,11 +156,7 @@ pub fn setup_grid(
     ));
     commands.spawn((
         SpriteBundle {
-            sprite: Sprite {
-                color: colors::SECONDARY_COLOR,
-                custom_size: Some(Vec2::new(GRID_THICKNESS, GRID_LENGTH)),
-                ..Default::default()
-            },
+            sprite: grid_sprite.clone(),
             transform: Transform::from_translation(Vec3::new(
                 -1.0 * CELL_SIZE / 2.0,
                 VERTICAL_OFFSET,
@@ -167,11 +168,7 @@ pub fn setup_grid(
     ));
     commands.spawn((
         SpriteBundle {
-            sprite: Sprite {
-                color: colors::SECONDARY_COLOR,
-                custom_size: Some(Vec2::new(GRID_LENGTH, GRID_THICKNESS)),
-                ..Default::default()
-            },
+            sprite: grid_sprite.clone(),
             transform: Transform::from_translation(Vec3::new(
                 0.0,
                 -1.0 * CELL_SIZE / 2.0 + VERTICAL_OFFSET,
@@ -183,11 +180,7 @@ pub fn setup_grid(
     ));
     commands.spawn((
         SpriteBundle {
-            sprite: Sprite {
-                color: colors::SECONDARY_COLOR,
-                custom_size: Some(Vec2::new(GRID_LENGTH, GRID_THICKNESS)),
-                ..default()
-            },
+            sprite: grid_sprite.clone(),
             transform: Transform::from_translation(Vec3::new(
                 0.0,
                 CELL_SIZE / 2.0 + VERTICAL_OFFSET,
@@ -309,12 +302,27 @@ pub struct TrialCount(pub u32);
 #[derive(Component)]
 pub struct TrialLabel;
 
+#[derive(Resource)]
+pub struct StimuliGeneration {
+    stimuli: Vec<(TargetLocation, TargetAudio)>,
+}
+
 pub fn setup_trial(
     mut commands: Commands,
     settings: Res<SettingValues>,
+    stats: Res<StatValues>,
     asset_server: Res<AssetServer>,
 ) {
-    commands.insert_resource(TrialCount(settings.trials));
+    commands.insert_resource(TrialCount(
+        settings.base_trials
+            + (settings.trial_factor * stats.current_level.pow(settings.trial_exponent)),
+    ));
+
+    let stimuli = iter::repeat_with(|| (TargetLocation::random(), TargetAudio::random()))
+        .take(stats.current_level as usize)
+        .collect::<Vec<(TargetLocation, TargetAudio)>>();
+
+    commands.insert_resource(StimuliGeneration { stimuli });
 
     commands.spawn((
         TextBundle::from_section(
@@ -401,11 +409,63 @@ pub fn trial_progression_system(
     mut commands: Commands,
     time: Res<Time>,
     mut timer: ResMut<TrialTimer>,
+    mut stimuli_generation: ResMut<StimuliGeneration>,
+    settings: Res<SettingValues>,
+    stats: Res<StatValues>,
     mut trial_count: ResMut<TrialCount>,
     mut app_state: ResMut<NextState<AppState>>,
 ) {
     if timer.0.tick(time.delta()).just_finished() {
+        let previous_stimuli = stimuli_generation.stimuli.clone();
+        let mut new_stimuli = Vec::new();
+        let n_level = stats.current_level as usize;
+
+        let mut rng = rand::thread_rng();
         let random_target_location = TargetLocation::random();
+
+        for i in 0..n_level {
+            let mut target_location = TargetLocation::random();
+            let mut target_audio = TargetAudio::random();
+
+            let mut location_roll: f32 = rng.gen();
+            if location_roll < settings.chance_of_guaranteed_match {
+                target_location = previous_stimuli[i].0;
+                println!("Guaranteed location match: {:?}", target_location);
+            } else {
+                location_roll = rng.gen();
+                if location_roll < settings.chance_of_interference {
+                    let left_back_roll: f32 = rng.gen();
+                    if left_back_roll < 0.5 && i != 0 || (i == n_level - 1) {
+                        target_location = previous_stimuli[i - 1].0;
+                    } else {
+                        target_location = previous_stimuli[i + 1].0;
+                    }
+                    println!("Interference location match: {:?}", target_location);
+                }
+            }
+
+            let mut audio_roll: f32 = rng.gen();
+            if audio_roll < settings.chance_of_guaranteed_match {
+                target_audio = previous_stimuli[i].1;
+                println!("Guaranteed audio match: {:?}", target_audio);
+            } else {
+                audio_roll = rng.gen();
+                if audio_roll < settings.chance_of_interference {
+                    let left_back_roll: f32 = rng.gen();
+                    if left_back_roll < 0.5 && i != 0 || (i == n_level - 1) {
+                        target_audio = previous_stimuli[i - 1].1;
+                    } else {
+                        target_audio = previous_stimuli[i + 1].1;
+                    }
+                    println!("Interference audio match: {:?}", target_audio);
+                }
+            }
+
+            new_stimuli.push((target_location, target_audio));
+        }
+        commands.insert_resource(StimuliGeneration {
+            stimuli: new_stimuli,
+        });
 
         for (target_location, mut target_visibility, mut display_target_time) in &mut target_query {
             if *target_location == random_target_location {
