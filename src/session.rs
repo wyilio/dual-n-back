@@ -403,7 +403,7 @@ fn spawn_stimuli_button(
         .spawn((
             ButtonBundle {
                 style: Style {
-                    width: Val::Px(150.0),
+                    width: Val::Px(200.0),
                     justify_content: JustifyContent::Center,
                     border: UiRect::all(Val::Px(2.0)),
                     padding: UiRect::all(Val::Px(5.0)),
@@ -787,13 +787,13 @@ pub fn setup_stimuli_buttons(mut commands: Commands, asset_server: Res<AssetServ
                     spawn_stimuli_button(
                         builder,
                         font.clone(),
-                        "Position",
+                        "A: Position",
                         StimuliButtonAction::MatchPosition,
                     );
                     spawn_stimuli_button(
                         builder,
                         font.clone(),
-                        "Audio",
+                        "L: Audio",
                         StimuliButtonAction::MatchAudio,
                     );
                 });
