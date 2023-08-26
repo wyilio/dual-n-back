@@ -1,5 +1,7 @@
 use crate::{colors, despawn_screen, AppState, SettingValues, StatValues};
 use bevy::{prelude::*, sprite::MaterialMesh2dBundle};
+use bevy_inspector_egui::prelude::*;
+use bevy_inspector_egui::quick::ResourceInspectorPlugin;
 use rand::{thread_rng, Rng};
 use std::collections::HashMap;
 use std::iter;
@@ -11,7 +13,11 @@ pub struct SessionPlugin;
 
 impl Plugin for SessionPlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(TrialTimer(Timer::from_seconds(3.0, TimerMode::Repeating)))
+        app.add_plugin(ResourceInspectorPlugin::<TrialCount>::default())
+            .add_plugin(ResourceInspectorPlugin::<StatValues>::default())
+            .add_plugin(ResourceInspectorPlugin::<Score>::default())
+            .add_plugin(ResourceInspectorPlugin::<StimuliGeneration>::default())
+            .insert_resource(TrialTimer(Timer::from_seconds(3.0, TimerMode::Repeating)))
             .add_state::<SessionState>()
             .add_systems(
                 OnEnter(AppState::Session),
@@ -59,7 +65,7 @@ pub enum SessionState {
     Active,
 }
 
-#[derive(EnumIter, Component, Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(EnumIter, Component, Debug, Copy, Clone, Eq, PartialEq, Reflect)]
 pub enum TargetAudio {
     C,
     H,
@@ -88,7 +94,7 @@ impl TargetAudio {
     }
 }
 
-#[derive(EnumIter, Component, Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(EnumIter, Component, Debug, Copy, Clone, Eq, PartialEq, Reflect)]
 pub enum TargetLocation {
     TopLeft,
     TopMiddle,
@@ -283,37 +289,14 @@ pub fn stimuli_button_system(
 
 pub fn stimuli_button_action(
     mut interaction_query: Query<
-        (&Interaction, &mut MatchState, &StimuliButtonAction),
+        (&Interaction, &mut MatchState),
         (Changed<Interaction>, With<StimuliButton>),
     >,
-    mut stimuli_generation: ResMut<StimuliGeneration>,
-    mut score: ResMut<Score>,
 ) {
-    for (interaction, mut match_state, stimuli_button_action) in &mut interaction_query {
+    for (interaction, mut match_state) in &mut interaction_query {
         match *interaction {
             Interaction::Pressed => {
                 *match_state = MatchState::Match;
-
-                let index = stimuli_generation.index;
-                if let StimuliButtonAction::MatchPosition = *stimuli_button_action {
-                    println!(
-                        "{:?} {} {:?}",
-                        stimuli_generation.stimuli, index, stimuli_generation.previous
-                    );
-                    if stimuli_generation.stimuli[index].0 == stimuli_generation.previous[index].0 {
-                        println!("Position match");
-                        score.position_correct += 1;
-                    } else {
-                        println!("Wrong position match");
-                    }
-                } else if let StimuliButtonAction::MatchAudio = *stimuli_button_action {
-                    if stimuli_generation.stimuli[index].1 == stimuli_generation.previous[index].1 {
-                        println!("Match audio");
-                        score.audio_correct += 1;
-                    } else {
-                        println!("Wrong position match");
-                    }
-                }
             }
             _ => {}
         }
@@ -326,7 +309,7 @@ pub enum StimuliButtonAction {
     MatchAudio,
 }
 
-#[derive(Component)]
+#[derive(Component, PartialEq)]
 pub enum MatchState {
     Match,
     NonResponse,
@@ -374,13 +357,18 @@ fn spawn_stimuli_button(
         });
 }
 
-#[derive(Resource)]
+// #[derive(Resource)]
+#[derive(Reflect, Resource, Default, InspectorOptions)]
+#[reflect(Resource, InspectorOptions)]
 pub struct TrialCount {
     pub current_count: u32,
     pub total_count: u32,
+    pub final_trial: bool,
 }
 
-#[derive(Resource)]
+// #[derive(Resource)]
+#[derive(Reflect, Resource, Default, InspectorOptions)]
+#[reflect(Resource, InspectorOptions)]
 pub struct Score {
     pub position_correct: u32,
     pub audio_correct: u32,
@@ -389,7 +377,9 @@ pub struct Score {
 #[derive(Component)]
 pub struct TrialLabel;
 
-#[derive(Resource)]
+// #[derive(Resource)]
+#[derive(Reflect, Resource, Default, InspectorOptions)]
+#[reflect(Resource, InspectorOptions)]
 pub struct StimuliGeneration {
     stimuli: Vec<(TargetLocation, TargetAudio)>,
     previous: Vec<(TargetLocation, TargetAudio)>,
@@ -408,6 +398,7 @@ pub fn setup_trial(
     commands.insert_resource(TrialCount {
         current_count: total_count,
         total_count,
+        final_trial: false,
     });
 
     let stimuli = iter::repeat_with(|| (TargetLocation::random(), TargetAudio::random()))
@@ -505,30 +496,73 @@ pub fn trial_progression_system(
         (&TargetLocation, &mut Visibility, &mut DisplayTargetTime),
         With<TargetLocation>,
     >,
-    mut stimuli_button_query: Query<&mut MatchState, With<StimuliButton>>,
+    mut stimuli_button_query: Query<(&mut MatchState, &StimuliButtonAction), With<StimuliButton>>,
     mut commands: Commands,
-    time: Res<Time>,
     mut timer: ResMut<TrialTimer>,
     mut stimuli_generation: ResMut<StimuliGeneration>,
-    settings: Res<SettingValues>,
-    stats: Res<StatValues>,
     mut session_state: ResMut<NextState<SessionState>>,
     mut trial_count: ResMut<TrialCount>,
+    mut score: ResMut<Score>,
+    time: Res<Time>,
+    asset_server: Res<AssetServer>,
+    settings: Res<SettingValues>,
+    stats: Res<StatValues>,
 ) {
-    let generation_index =
-        ((trial_count.total_count - trial_count.current_count) % stats.current_level) as usize;
-    let mut new_stimuli = Vec::new();
-
     if timer.0.tick(time.delta()).just_finished() {
-        if trial_count.total_count - trial_count.current_count >= stats.current_level {
-            for (mut match_state) in &mut stimuli_button_query {
+        let trials_completed = trial_count.total_count - trial_count.current_count;
+
+        let generation_index = (trials_completed % stats.current_level) as usize;
+        let mut new_stimuli = Vec::new();
+
+        for (mut match_state, stimuli_button_action) in &mut stimuli_button_query {
+            if trials_completed > stats.current_level {
+                let index = stimuli_generation.index;
+                if let StimuliButtonAction::MatchPosition = *stimuli_button_action {
+                    if stimuli_generation.stimuli[index].0 == stimuli_generation.previous[index].0 {
+                        if let MatchState::Match = *match_state {
+                            println!("Position match");
+                            score.position_correct += 1;
+                        } else {
+                            println!("Wrong position match");
+                        }
+                    } else {
+                        if let MatchState::NonResponse = *match_state {
+                            println!("Position match");
+                            score.position_correct += 1;
+                        } else {
+                            println!("Wrong position match");
+                        }
+                    }
+                } else if let StimuliButtonAction::MatchAudio = *stimuli_button_action {
+                    if stimuli_generation.stimuli[index].1 == stimuli_generation.previous[index].1 {
+                        if *match_state == MatchState::Match {
+                            println!("Audio match");
+                            score.audio_correct += 1;
+                        } else {
+                            println!("Wrong audio match");
+                        }
+                    } else {
+                        if *match_state == MatchState::NonResponse {
+                            println!("Audio match");
+                            score.audio_correct += 1;
+                        } else {
+                            println!("Wrong audio match");
+                        }
+                    }
+                }
+            }
+            if trials_completed >= stats.current_level {
                 *match_state = MatchState::NonResponse;
             }
         }
 
-        if generation_index == 0 && trial_count.current_count != trial_count.total_count {
-            println!("Running randomization");
+        if trial_count.final_trial {
+            println!("Final trial finished {}", trial_count.current_count);
+            session_state.set(SessionState::Exit);
+            return;
+        }
 
+        if generation_index == 0 && trial_count.current_count != trial_count.total_count {
             let mut rng = rand::thread_rng();
 
             let n_level = stats.current_level as usize;
@@ -583,16 +617,13 @@ pub fn trial_progression_system(
             stimuli_generation.index = generation_index;
         }
 
-        for (target_location, mut target_visibility, mut display_target_time) in &mut target_query {
-            let mut current_stimuli = &stimuli_generation.stimuli[generation_index];
-            if generation_index == 0 && trial_count.current_count != trial_count.total_count {
-                current_stimuli = &new_stimuli[0]
-            }
+        let mut current_stimuli = &stimuli_generation.stimuli[generation_index];
+        if generation_index == 0 && trial_count.current_count != trial_count.total_count {
+            current_stimuli = &new_stimuli[0]
+        }
 
+        for (target_location, mut target_visibility, mut display_target_time) in &mut target_query {
             if *target_location == current_stimuli.0 {
-                println!("Generation index: {}", generation_index);
-                println!("Current: {:?}, ", current_stimuli);
-                println!("Previous: {:?}", stimuli_generation.previous);
                 *target_visibility = Visibility::Visible;
                 display_target_time.timer = Timer::from_seconds(0.5, TimerMode::Once);
             } else {
@@ -600,12 +631,33 @@ pub fn trial_progression_system(
             }
         }
 
+        play_sound(&mut commands, &asset_server, current_stimuli.1);
+
+        trial_count.current_count = trial_count.current_count - 1;
         if trial_count.current_count == 0 {
-            session_state.set(SessionState::Exit);
-        } else {
-            trial_count.current_count = trial_count.current_count - 1;
+            println!("Final trial");
+            trial_count.final_trial = true;
         }
     }
+}
+
+pub fn play_sound(commands: &mut Commands, asset_server: &Res<AssetServer>, audio: TargetAudio) {
+    println!("Playing sound: {:?}", audio);
+
+    let audio_file = match audio {
+        TargetAudio::C => "letters/c.wav",
+        TargetAudio::H => "letters/h.wav",
+        TargetAudio::K => "letters/k.wav",
+        TargetAudio::L => "letters/l.wav",
+        TargetAudio::Q => "letters/q.wav",
+        TargetAudio::R => "letters/r.wav",
+        TargetAudio::S => "letters/s.wav",
+        TargetAudio::T => "letters/t.wav",
+    };
+    commands.spawn(AudioBundle {
+        source: asset_server.load(audio_file),
+        ..Default::default()
+    });
 }
 
 pub fn target_transition_system(

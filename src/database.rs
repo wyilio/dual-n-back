@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use bevy_inspector_egui::prelude::*;
 use bevy_pkv::PkvStore;
 use chrono::{serde::ts_seconds, DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -46,7 +47,9 @@ impl Default for SettingValues {
     }
 }
 
-#[derive(Debug, Clone, Resource, Serialize, Deserialize)]
+// #[derive(Debug, Clone, Resource, Serialize, Deserialize)]
+#[derive(Reflect, Resource, InspectorOptions, Debug, Clone, Serialize, Deserialize)]
+#[reflect(Resource, InspectorOptions)]
 pub struct StatValues {
     pub current_level: u32,
     pub average_level_today: f32,
