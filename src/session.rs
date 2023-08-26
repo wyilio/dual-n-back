@@ -4,7 +4,6 @@ use crate::{
 };
 use bevy::{prelude::*, sprite::MaterialMesh2dBundle};
 use bevy_inspector_egui::prelude::*;
-use bevy_inspector_egui::quick::ResourceInspectorPlugin;
 use bevy_pkv::PkvStore;
 use rand::{thread_rng, Rng};
 use std::collections::HashMap;
@@ -17,11 +16,7 @@ pub struct SessionPlugin;
 
 impl Plugin for SessionPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugin(ResourceInspectorPlugin::<TrialCount>::default())
-            .add_plugin(ResourceInspectorPlugin::<StatValues>::default())
-            .add_plugin(ResourceInspectorPlugin::<Score>::default())
-            .add_plugin(ResourceInspectorPlugin::<StimuliGeneration>::default())
-            .insert_resource(TrialTimer(Timer::from_seconds(3.0, TimerMode::Repeating)))
+        app.insert_resource(TrialTimer(Timer::from_seconds(3.0, TimerMode::Repeating)))
             .add_state::<SessionState>()
             .add_systems(
                 OnEnter(AppState::Session),
@@ -278,13 +273,11 @@ pub fn exit_session_system(
     let percent_score = 100.0 * (num_correct) as f32 / (num_wrong + num_correct) as f32;
 
     println!("Percent Score: {}", percent_score as u32);
-    let mut new_stats = stats.clone();
 
-    stats.average_level_today = (stats.average_level_today * stats.sessions_today as f32
-        + stats.current_level as f32)
-        / (stats.sessions_today + 1) as f32;
-
-    println!("Average Level Today: {}", new_stats.average_level_today);
+    stats.average_level_today = round_float(
+        (stats.average_level_today * stats.sessions_today as f32 + stats.current_level as f32)
+            / (stats.sessions_today + 1) as f32,
+    );
 
     stats.sessions_today += 1;
     stats.total_sessions += 1;
@@ -431,18 +424,14 @@ fn spawn_stimuli_button(
         });
 }
 
-// #[derive(Resource)]
-#[derive(Reflect, Resource, Default, InspectorOptions)]
-#[reflect(Resource, InspectorOptions)]
+#[derive(Resource)]
 pub struct TrialCount {
     pub current_count: u32,
     pub total_count: u32,
     pub final_trial: bool,
 }
 
-// #[derive(Resource)]
-#[derive(Reflect, Resource, Default, InspectorOptions)]
-#[reflect(Resource, InspectorOptions)]
+#[derive(Resource)]
 pub struct Score {
     pub position_correct: u32,
     pub audio_correct: u32,
@@ -455,9 +444,7 @@ pub struct Score {
 #[derive(Component)]
 pub struct TrialLabel;
 
-// #[derive(Resource)]
-#[derive(Reflect, Debug, Resource, Default, InspectorOptions)]
-#[reflect(Resource, InspectorOptions)]
+#[derive(Resource)]
 pub struct StimuliGeneration {
     stimuli: Vec<(TargetLocation, TargetAudio)>,
     previous: Vec<(TargetLocation, TargetAudio)>,
@@ -677,18 +664,6 @@ pub fn trial_progression_system(
                     target_audio = stimuli_generation.stimuli[i].1;
                     println!("Guaranteed audio match: {:?}", target_audio);
                 }
-                // } else if n_level != 1
-                //     && audio_roll
-                //         < ((settings.chance_of_guaranteed_match + settings.chance_of_interference)
-                //             / 100.0)
-                // {
-                //     let left_back_roll: f32 = rng.gen();
-                //     if (i == n_level - 1) || left_back_roll < 0.5 && i != 0 {
-                //         target_audio = stimuli_generation.stimuli[i - 1].1;
-                //     } else {
-                //         target_audio = stimuli_generation.stimuli[i + 1].1;
-                //     }
-                // }
                 new_stimuli.push((target_location, target_audio));
             }
             commands.insert_resource(StimuliGeneration {

@@ -237,13 +237,13 @@ fn setup_scoreboard(
             spawn_label(
                 builder,
                 font.clone(),
-                "Current Level",
+                "Current DNB",
                 stats.current_level.to_string(),
             );
             spawn_label(
                 builder,
                 font.clone(),
-                "Average Level Today",
+                "Average DNB",
                 stats.average_level_today.to_string(),
             );
             spawn_label(

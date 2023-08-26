@@ -1,3 +1,4 @@
+use crate::AppState;
 use bevy::prelude::*;
 use bevy_inspector_egui::prelude::*;
 use bevy_pkv::PkvStore;
@@ -7,10 +8,9 @@ use std::collections::{HashMap, VecDeque};
 
 impl Plugin for DatabasePlugin {
     fn build(&self, app: &mut App) {
-        // remove reset_database later
-        app.add_startup_system(reset_database)
-            .insert_resource(SettingValues::default())
+        app.insert_resource(SettingValues::default())
             .insert_resource(StatValues::default())
+            .add_systems(OnEnter(AppState::Menu), (sync_stats))
             .add_systems(Startup, (setup_database, setup_time));
     }
 }
@@ -63,23 +63,24 @@ impl Default for SettingValues {
     }
 }
 
-// #[derive(Debug, Clone, Resource, Serialize, Deserialize)]
-#[derive(Reflect, Resource, InspectorOptions, Debug, Clone, Serialize, Deserialize)]
-#[reflect(Resource, InspectorOptions)]
+#[derive(Debug, Clone, Resource, Serialize, Deserialize)]
 pub struct StatValues {
     pub current_level: u32,
     pub average_level_today: f32,
     pub sessions_today: u32,
     pub total_sessions: u32,
+    pub last_sync_date: NaiveDate,
 }
 
 impl Default for StatValues {
     fn default() -> Self {
+        let now = Local::now();
         Self {
             current_level: 1,
             average_level_today: 0.0,
             sessions_today: 0,
             total_sessions: 0,
+            last_sync_date: NaiveDate::from_ymd(now.year(), now.month(), now.day()),
         }
     }
 }
@@ -104,7 +105,7 @@ fn reset_database(mut pkv: ResMut<PkvStore>) {
     pkv.clear().expect("failed to clear database");
 }
 
-fn setup_time(mut commands: Commands) {
+fn setup_time(mut commands: Commands, mut pkv: ResMut<PkvStore>) {
     let now = Local::now();
     let date = NaiveDate::from_ymd(now.year(), now.month(), now.day());
 
@@ -133,7 +134,7 @@ fn setup_database(mut commands: Commands, mut pkv: ResMut<PkvStore>) {
         let default_stats = StatValues::default();
 
         pkv.set("statValues", &default_stats)
-            .expect("failed to store trials");
+            .expect("failed to store stats");
 
         commands.insert_resource(default_stats);
     }
@@ -162,5 +163,25 @@ fn setup_database(mut commands: Commands, mut pkv: ResMut<PkvStore>) {
             .expect("failed to store trials");
 
         commands.insert_resource(default_recent_sessions);
+    }
+}
+
+fn sync_stats(
+    mut pkv: ResMut<PkvStore>,
+    mut stats: ResMut<StatValues>,
+    mut entries: ResMut<EntryValues>,
+) {
+    let date_today = Local::now().naive_local().date();
+    if stats.last_sync_date != date_today {
+        let mut new_stats = stats.clone();
+        new_stats.sessions_today = 0;
+        new_stats.average_level_today = 0.0;
+        new_stats.last_sync_date = date_today;
+
+        pkv.set("statValues", &new_stats)
+            .expect("failed to store stats");
+    } else {
+        pkv.set("statValues", &*stats)
+            .expect("failed to store stats");
     }
 }
