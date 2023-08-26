@@ -12,9 +12,11 @@ pub struct SessionPlugin;
 impl Plugin for SessionPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(TrialTimer(Timer::from_seconds(3.0, TimerMode::Repeating)))
+            .add_state::<SessionState>()
             .add_systems(
                 OnEnter(AppState::Session),
                 (
+                    setup_session_state,
                     setup_grid,
                     setup_stimuli_buttons,
                     setup_targets,
@@ -33,6 +35,7 @@ impl Plugin for SessionPlugin {
                 )
                     .run_if(in_state(AppState::Session)),
             )
+            .add_systems(OnEnter(SessionState::Exit), exit_session_system)
             .add_systems(
                 Update,
                 exit_session.run_if(
@@ -48,6 +51,13 @@ pub const CELL_SIZE: f32 = 150.0;
 pub const VERTICAL_OFFSET: f32 = 75.0;
 pub const GRID_THICKNESS: f32 = 2.0;
 pub const GRID_LENGTH: f32 = 3.0 * CELL_SIZE;
+
+#[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash, States)]
+pub enum SessionState {
+    Exit,
+    #[default]
+    Active,
+}
 
 #[derive(EnumIter, Component, Debug, Copy, Clone, Eq, PartialEq)]
 pub enum TargetAudio {
@@ -135,6 +145,10 @@ pub enum Tile {
     Empty,
 }
 
+pub fn setup_session_state(mut session_state: ResMut<NextState<SessionState>>) {
+    session_state.set(SessionState::Active);
+}
+
 pub fn setup_grid(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -216,6 +230,42 @@ pub fn exit_session(
     }
 }
 
+pub fn exit_session_system(
+    mut commands: Commands,
+    mut app_state: ResMut<NextState<AppState>>,
+    score: ResMut<Score>,
+    mut stats: ResMut<StatValues>,
+    settings: ResMut<SettingValues>,
+    trial_count: ResMut<TrialCount>,
+) {
+    let percent_score = (score.position_correct + score.audio_correct) as f32
+        / (2 * (trial_count.total_count - stats.current_level)) as f32;
+
+    println!("Percent Score: {}", percent_score);
+    let mut new_stats = stats.clone();
+
+    stats.average_level_today = (stats.average_level_today * stats.sessions_today as f32
+        + stats.current_level as f32)
+        / (stats.sessions_today + 1) as f32;
+
+    println!("Average Level Today: {}", new_stats.average_level_today);
+
+    stats.sessions_today += 1;
+    stats.total_sessions += 1;
+
+    if percent_score > settings.raise_threshold / 100.0 {
+        stats.current_level += 1;
+        println!("Level Up!");
+    } else if percent_score < settings.lower_threshold / 100.0 {
+        if stats.current_level > 1 {
+            stats.current_level -= 1;
+        }
+        println!("Level Down!");
+    }
+
+    app_state.set(AppState::Menu);
+}
+
 pub fn stimuli_button_system(
     mut interaction_query: Query<
         (&Interaction, &mut BackgroundColor),
@@ -236,16 +286,33 @@ pub fn stimuli_button_action(
         (&Interaction, &mut MatchState, &StimuliButtonAction),
         (Changed<Interaction>, With<StimuliButton>),
     >,
+    mut stimuli_generation: ResMut<StimuliGeneration>,
+    mut score: ResMut<Score>,
 ) {
-    for (interaction, mut visibility_state, stimuli_button_action) in &mut interaction_query {
+    for (interaction, mut match_state, stimuli_button_action) in &mut interaction_query {
         match *interaction {
             Interaction::Pressed => {
-                *visibility_state = MatchState::Match;
+                *match_state = MatchState::Match;
 
+                let index = stimuli_generation.index;
                 if let StimuliButtonAction::MatchPosition = *stimuli_button_action {
-                    println!("Match position");
+                    println!(
+                        "{:?} {} {:?}",
+                        stimuli_generation.stimuli, index, stimuli_generation.previous
+                    );
+                    if stimuli_generation.stimuli[index].0 == stimuli_generation.previous[index].0 {
+                        println!("Position match");
+                        score.position_correct += 1;
+                    } else {
+                        println!("Wrong position match");
+                    }
                 } else if let StimuliButtonAction::MatchAudio = *stimuli_button_action {
-                    println!("Match audio");
+                    if stimuli_generation.stimuli[index].1 == stimuli_generation.previous[index].1 {
+                        println!("Match audio");
+                        score.audio_correct += 1;
+                    } else {
+                        println!("Wrong position match");
+                    }
                 }
             }
             _ => {}
@@ -325,6 +392,8 @@ pub struct TrialLabel;
 #[derive(Resource)]
 pub struct StimuliGeneration {
     stimuli: Vec<(TargetLocation, TargetAudio)>,
+    previous: Vec<(TargetLocation, TargetAudio)>,
+    index: usize,
 }
 
 pub fn setup_trial(
@@ -345,7 +414,11 @@ pub fn setup_trial(
         .take(stats.current_level as usize)
         .collect::<Vec<(TargetLocation, TargetAudio)>>();
 
-    commands.insert_resource(StimuliGeneration { stimuli: stimuli });
+    commands.insert_resource(StimuliGeneration {
+        stimuli: stimuli,
+        previous: Vec::new(),
+        index: 0,
+    });
     commands.insert_resource(Score {
         position_correct: 0,
         audio_correct: 0,
@@ -439,20 +512,22 @@ pub fn trial_progression_system(
     mut stimuli_generation: ResMut<StimuliGeneration>,
     settings: Res<SettingValues>,
     stats: Res<StatValues>,
+    mut session_state: ResMut<NextState<SessionState>>,
     mut trial_count: ResMut<TrialCount>,
-    mut app_state: ResMut<NextState<AppState>>,
 ) {
     let generation_index =
-        (trial_count.total_count - trial_count.current_count) % stats.current_level;
+        ((trial_count.total_count - trial_count.current_count) % stats.current_level) as usize;
     let mut new_stimuli = Vec::new();
 
     if timer.0.tick(time.delta()).just_finished() {
+        if trial_count.total_count - trial_count.current_count >= stats.current_level {
+            for (mut match_state) in &mut stimuli_button_query {
+                *match_state = MatchState::NonResponse;
+            }
+        }
+
         if generation_index == 0 && trial_count.current_count != trial_count.total_count {
             println!("Running randomization");
-
-            for (mut stimuli_button_visibility) in &mut stimuli_button_query {
-                *stimuli_button_visibility = MatchState::NonResponse;
-            }
 
             let mut rng = rand::thread_rng();
 
@@ -501,11 +576,15 @@ pub fn trial_progression_system(
             }
             commands.insert_resource(StimuliGeneration {
                 stimuli: new_stimuli.clone(),
+                previous: stimuli_generation.stimuli.clone(),
+                index: generation_index,
             });
+        } else {
+            stimuli_generation.index = generation_index;
         }
 
         for (target_location, mut target_visibility, mut display_target_time) in &mut target_query {
-            let mut current_stimuli = &stimuli_generation.stimuli[generation_index as usize];
+            let mut current_stimuli = &stimuli_generation.stimuli[generation_index];
             if generation_index == 0 && trial_count.current_count != trial_count.total_count {
                 current_stimuli = &new_stimuli[0]
             }
@@ -513,6 +592,7 @@ pub fn trial_progression_system(
             if *target_location == current_stimuli.0 {
                 println!("Generation index: {}", generation_index);
                 println!("Current: {:?}, ", current_stimuli);
+                println!("Previous: {:?}", stimuli_generation.previous);
                 *target_visibility = Visibility::Visible;
                 display_target_time.timer = Timer::from_seconds(0.5, TimerMode::Once);
             } else {
@@ -521,7 +601,7 @@ pub fn trial_progression_system(
         }
 
         if trial_count.current_count == 0 {
-            app_state.set(AppState::Menu);
+            session_state.set(SessionState::Exit);
         } else {
             trial_count.current_count = trial_count.current_count - 1;
         }

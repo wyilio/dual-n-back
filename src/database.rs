@@ -46,25 +46,21 @@ impl Default for SettingValues {
     }
 }
 
-#[derive(Debug, Resource, Serialize, Deserialize)]
+#[derive(Debug, Clone, Resource, Serialize, Deserialize)]
 pub struct StatValues {
     pub current_level: u32,
     pub average_level_today: f32,
     pub sessions_today: u32,
     pub total_sessions: u32,
-    pub total_days: u32,
-    pub total_time: u32,
 }
 
 impl Default for StatValues {
     fn default() -> Self {
         Self {
-            current_level: 2,
+            current_level: 1,
             average_level_today: 0.0,
             sessions_today: 0,
             total_sessions: 0,
-            total_days: 0,
-            total_time: 0,
         }
     }
 }

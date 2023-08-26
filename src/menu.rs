@@ -1,5 +1,6 @@
 use bevy::app::AppExit;
 use bevy::{prelude::*, window::WindowResized};
+use std::collections::VecDeque;
 
 use crate::{colors, despawn_screen, AppState, StatValues};
 
@@ -24,6 +25,11 @@ pub enum MenuState {
     Settings,
     #[default]
     Disabled,
+}
+
+#[derive(Resource, Default)]
+pub struct RecentSessions {
+    pub sessions: VecDeque<u32>,
 }
 
 #[derive(Component)]
@@ -200,18 +206,6 @@ fn setup_scoreboard(
                 font.clone(),
                 "Total Sessions",
                 stats.total_sessions.to_string(),
-            );
-            spawn_stat(
-                builder,
-                font.clone(),
-                "Total Days",
-                stats.total_days.to_string(),
-            );
-            spawn_stat(
-                builder,
-                font.clone(),
-                "Total Time",
-                stats.total_time.to_string(),
             );
         });
 }
