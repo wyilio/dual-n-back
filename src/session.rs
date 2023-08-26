@@ -21,7 +21,7 @@ impl Plugin for SessionPlugin {
             .add_plugin(ResourceInspectorPlugin::<StatValues>::default())
             .add_plugin(ResourceInspectorPlugin::<Score>::default())
             .add_plugin(ResourceInspectorPlugin::<StimuliGeneration>::default())
-            .insert_resource(TrialTimer(Timer::from_seconds(0.10, TimerMode::Repeating)))
+            .insert_resource(TrialTimer(Timer::from_seconds(3.0, TimerMode::Repeating)))
             .add_state::<SessionState>()
             .add_systems(
                 OnEnter(AppState::Session),
@@ -36,7 +36,7 @@ impl Plugin for SessionPlugin {
             .add_systems(
                 Update,
                 (
-                    stimuli_button_system,
+                    button_color_system,
                     stimuli_button_action,
                     stimuli_visibility_system,
                     target_transition_system,
@@ -48,7 +48,7 @@ impl Plugin for SessionPlugin {
             .add_systems(OnEnter(SessionState::Exit), exit_session_system)
             .add_systems(
                 Update,
-                exit_session.run_if(
+                keyboard_input_system.run_if(
                     state_exists_and_equals(AppState::Session)
                         .or_else(state_exists_and_equals(AppState::Menu)),
                 ),
@@ -226,16 +226,35 @@ pub fn setup_grid(
     ));
 }
 
-pub fn exit_session(
+pub fn keyboard_input_system(
     app_state: Res<State<AppState>>,
     mut change_app_state: ResMut<NextState<AppState>>,
     keyboard_input: Res<Input<KeyCode>>,
+    mut stimuli_button_query: Query<(&mut MatchState, &StimuliButtonAction), With<StimuliButton>>,
 ) {
     if keyboard_input.just_pressed(KeyCode::Escape) {
         if let AppState::Session = app_state.get() {
             change_app_state.set(AppState::Menu);
         } else {
             change_app_state.set(AppState::Session);
+        }
+    } else if keyboard_input.just_pressed(KeyCode::A) {
+        for (mut match_state, stimuli_button_action) in &mut stimuli_button_query {
+            if StimuliButtonAction::MatchPosition == *stimuli_button_action
+                && *match_state != MatchState::Inactive
+            {
+                println!("Typed Position Match");
+                *match_state = MatchState::Match;
+            }
+        }
+    } else if keyboard_input.just_pressed(KeyCode::L) {
+        for (mut match_state, stimuli_button_action) in &mut stimuli_button_query {
+            if StimuliButtonAction::MatchAudio == *stimuli_button_action
+                && *match_state != MatchState::Inactive
+            {
+                println!("Typed Audio Match");
+                *match_state = MatchState::Match;
+            }
         }
     }
 }
@@ -327,7 +346,7 @@ pub fn exit_session_system(
     app_state.set(AppState::Menu);
 }
 
-pub fn stimuli_button_system(
+pub fn button_color_system(
     mut interaction_query: Query<
         (&Interaction, &mut BackgroundColor),
         (Changed<Interaction>, With<StimuliButton>),
@@ -358,7 +377,7 @@ pub fn stimuli_button_action(
     }
 }
 
-#[derive(Component)]
+#[derive(Component, PartialEq)]
 pub enum StimuliButtonAction {
     MatchPosition,
     MatchAudio,
