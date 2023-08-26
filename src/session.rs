@@ -1,11 +1,15 @@
-use crate::{colors, despawn_screen, AppState, SettingValues, StatValues};
+use crate::{
+    colors, despawn_screen, AppState, CurrentDate, DayEntry, EntryValues, RecentSessions, Session,
+    SettingValues, StatValues,
+};
 use bevy::{prelude::*, sprite::MaterialMesh2dBundle};
 use bevy_inspector_egui::prelude::*;
 use bevy_inspector_egui::quick::ResourceInspectorPlugin;
+use bevy_pkv::PkvStore;
 use rand::{thread_rng, Rng};
 use std::collections::HashMap;
-use std::iter;
 use std::time::Duration;
+use std::{cmp, iter};
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 
@@ -17,7 +21,7 @@ impl Plugin for SessionPlugin {
             .add_plugin(ResourceInspectorPlugin::<StatValues>::default())
             .add_plugin(ResourceInspectorPlugin::<Score>::default())
             .add_plugin(ResourceInspectorPlugin::<StimuliGeneration>::default())
-            .insert_resource(TrialTimer(Timer::from_seconds(3.0, TimerMode::Repeating)))
+            .insert_resource(TrialTimer(Timer::from_seconds(0.10, TimerMode::Repeating)))
             .add_state::<SessionState>()
             .add_systems(
                 OnEnter(AppState::Session),
@@ -239,15 +243,22 @@ pub fn exit_session(
 pub fn exit_session_system(
     mut commands: Commands,
     mut app_state: ResMut<NextState<AppState>>,
-    score: ResMut<Score>,
+    mut pkv: ResMut<PkvStore>,
     mut stats: ResMut<StatValues>,
+    mut entries: ResMut<EntryValues>,
+    current_date: Res<CurrentDate>,
+    score: ResMut<Score>,
     settings: ResMut<SettingValues>,
     trial_count: ResMut<TrialCount>,
 ) {
-    let percent_score = (score.position_correct + score.audio_correct) as f32
-        / (2 * (trial_count.total_count - stats.current_level)) as f32;
+    let num_correct = score.position_correct + score.audio_correct;
+    let num_wrong = score.position_false_positive
+        + score.position_false_negative
+        + score.audio_false_positive
+        + score.audio_false_negative;
+    let percent_score = 100.0 * (num_correct) as f32 / (num_wrong + num_correct) as f32;
 
-    println!("Percent Score: {}", percent_score);
+    println!("Percent Score: {}", percent_score as u32);
     let mut new_stats = stats.clone();
 
     stats.average_level_today = (stats.average_level_today * stats.sessions_today as f32
@@ -259,14 +270,58 @@ pub fn exit_session_system(
     stats.sessions_today += 1;
     stats.total_sessions += 1;
 
-    if percent_score > settings.raise_threshold / 100.0 {
+    if percent_score > settings.raise_threshold {
         stats.current_level += 1;
         println!("Level Up!");
-    } else if percent_score < settings.lower_threshold / 100.0 {
+    } else if percent_score < settings.lower_threshold {
         if stats.current_level > 1 {
             stats.current_level -= 1;
         }
         println!("Level Down!");
+    }
+
+    if let Ok(entries) = pkv.get::<EntryValues>("entryValues") {
+        let mut new_entries = entries.clone();
+
+        let mut entry = new_entries
+            .day_entries
+            .entry(current_date.date)
+            .or_insert_with(|| DayEntry {
+                date: current_date.date,
+                average_level: 0.0,
+                sessions_completed: 0,
+                max_level: 1,
+            });
+
+        entry.max_level = std::cmp::max(stats.current_level, entry.max_level);
+        entry.average_level = (entry.average_level * entry.sessions_completed as f32
+            + stats.current_level as f32)
+            / (entry.sessions_completed + 1) as f32;
+        entry.sessions_completed += 1;
+
+        pkv.set("entryValues", &new_entries)
+            .expect("failed to store trials");
+    } else {
+        error!("Failed to load entry values");
+    }
+
+    if let Ok(recent_sessions) = pkv.get::<RecentSessions>("recentSessions") {
+        let mut new_recent_sessions = recent_sessions.clone();
+
+        new_recent_sessions.sessions.push_back(Session {
+            date: current_date.date,
+            level: stats.current_level,
+            percent_score: percent_score as u32,
+        });
+
+        if new_recent_sessions.sessions.len() > 10 {
+            new_recent_sessions.sessions.pop_front();
+        }
+
+        pkv.set("recentSessions", &new_recent_sessions)
+            .expect("failed to store trials");
+    } else {
+        error!("Failed to load recent sessions");
     }
 
     app_state.set(AppState::Menu);
@@ -372,13 +427,17 @@ pub struct TrialCount {
 pub struct Score {
     pub position_correct: u32,
     pub audio_correct: u32,
+    pub position_false_positive: u32,
+    pub audio_false_positive: u32,
+    pub position_false_negative: u32,
+    pub audio_false_negative: u32,
 }
 
 #[derive(Component)]
 pub struct TrialLabel;
 
 // #[derive(Resource)]
-#[derive(Reflect, Resource, Default, InspectorOptions)]
+#[derive(Reflect, Debug, Resource, Default, InspectorOptions)]
 #[reflect(Resource, InspectorOptions)]
 pub struct StimuliGeneration {
     stimuli: Vec<(TargetLocation, TargetAudio)>,
@@ -413,6 +472,10 @@ pub fn setup_trial(
     commands.insert_resource(Score {
         position_correct: 0,
         audio_correct: 0,
+        position_false_positive: 0,
+        audio_false_positive: 0,
+        position_false_negative: 0,
+        audio_false_negative: 0,
     });
 
     commands.spawn((
@@ -519,34 +582,41 @@ pub fn trial_progression_system(
                 let index = stimuli_generation.index;
                 if let StimuliButtonAction::MatchPosition = *stimuli_button_action {
                     if stimuli_generation.stimuli[index].0 == stimuli_generation.previous[index].0 {
-                        if let MatchState::Match = *match_state {
-                            println!("Position match");
+                        if MatchState::Match == *match_state {
+                            println!("Position Match");
                             score.position_correct += 1;
                         } else {
-                            println!("Wrong position match");
+                            println!("Position False Negative");
+                            score.position_false_negative += 1;
                         }
                     } else {
-                        if let MatchState::NonResponse = *match_state {
-                            println!("Position match");
-                            score.position_correct += 1;
+                        if MatchState::NonResponse == *match_state {
+                            println!("Position Correct Negative");
                         } else {
-                            println!("Wrong position match");
+                            println!(
+                                "{:?} {:?}",
+                                stimuli_generation.stimuli[index].0,
+                                stimuli_generation.previous[index].0
+                            );
+                            score.position_false_positive += 1;
+                            println!("Wrong False Positive");
                         }
                     }
                 } else if let StimuliButtonAction::MatchAudio = *stimuli_button_action {
                     if stimuli_generation.stimuli[index].1 == stimuli_generation.previous[index].1 {
                         if *match_state == MatchState::Match {
-                            println!("Audio match");
+                            println!("Audio Match");
                             score.audio_correct += 1;
                         } else {
-                            println!("Wrong audio match");
+                            println!("Audio False Negative");
+                            score.audio_false_negative += 1;
                         }
                     } else {
                         if *match_state == MatchState::NonResponse {
-                            println!("Audio match");
-                            score.audio_correct += 1;
+                            println!("Audio Correct Negative");
                         } else {
-                            println!("Wrong audio match");
+                            println!("Audio False Positive");
+                            score.audio_false_positive += 1;
                         }
                     }
                 }
@@ -575,37 +645,31 @@ pub fn trial_progression_system(
                 if location_roll < (settings.chance_of_guaranteed_match / 100.0) {
                     target_location = stimuli_generation.stimuli[i].0;
                     println!("Guaranteed location match: {:?}", target_location);
-                } else if n_level != 1
-                    && location_roll
-                        < ((settings.chance_of_guaranteed_match + settings.chance_of_interference)
-                            / 100.0)
-                {
-                    let left_back_roll: f32 = rng.gen();
-                    if (i == n_level - 1) || left_back_roll < 0.5 && i != 0 {
-                        target_location = stimuli_generation.stimuli[i - 1].0;
-                    } else {
-                        target_location = stimuli_generation.stimuli[i + 1].0;
-                    }
-                    println!("Interference location match: {:?}", target_location);
                 }
 
                 // TODO: Remove code duplication
                 let mut audio_roll: f32 = rng.gen();
+                println!("Audio roll: {}", audio_roll);
+                print!(
+                    "Setting chance of guaranteed match: {}",
+                    settings.chance_of_guaranteed_match / 100.0
+                );
                 if audio_roll < (settings.chance_of_guaranteed_match / 100.0) {
                     target_audio = stimuli_generation.stimuli[i].1;
                     println!("Guaranteed audio match: {:?}", target_audio);
-                } else if n_level != 1
-                    && audio_roll
-                        < ((settings.chance_of_guaranteed_match + settings.chance_of_interference)
-                            / 100.0)
-                {
-                    let left_back_roll: f32 = rng.gen();
-                    if (i == n_level - 1) || left_back_roll < 0.5 && i != 0 {
-                        target_audio = stimuli_generation.stimuli[i - 1].1;
-                    } else {
-                        target_audio = stimuli_generation.stimuli[i + 1].1;
-                    }
                 }
+                // } else if n_level != 1
+                //     && audio_roll
+                //         < ((settings.chance_of_guaranteed_match + settings.chance_of_interference)
+                //             / 100.0)
+                // {
+                //     let left_back_roll: f32 = rng.gen();
+                //     if (i == n_level - 1) || left_back_roll < 0.5 && i != 0 {
+                //         target_audio = stimuli_generation.stimuli[i - 1].1;
+                //     } else {
+                //         target_audio = stimuli_generation.stimuli[i + 1].1;
+                //     }
+                // }
                 new_stimuli.push((target_location, target_audio));
             }
             commands.insert_resource(StimuliGeneration {
@@ -715,4 +779,8 @@ pub fn setup_stimuli_buttons(mut commands: Commands, asset_server: Res<AssetServ
                     );
                 });
         });
+}
+
+fn round_float(num: f32) -> f32 {
+    (num * 100.0).round() / 100.0
 }

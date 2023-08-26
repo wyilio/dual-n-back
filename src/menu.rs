@@ -1,21 +1,23 @@
 use bevy::app::AppExit;
 use bevy::{prelude::*, window::WindowResized};
-use std::collections::VecDeque;
 
-use crate::{colors, despawn_screen, AppState, StatValues};
+use crate::{colors, despawn_screen, AppState, PkvStore, RecentSessions, StatValues};
 
 pub struct MenuPlugin;
 
 impl Plugin for MenuPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(OnEnter(AppState::Menu), (setup_menu, setup_scoreboard))
-            .add_state::<MenuState>()
-            .add_systems(
-                Update,
-                (menu_button_system, menu_action, window_resize_system)
-                    .run_if(in_state(AppState::Menu)),
-            )
-            .add_systems(OnExit(AppState::Menu), despawn_screen::<OnMenuScreen>);
+        app.add_systems(
+            OnEnter(AppState::Menu),
+            (setup_menu, setup_scoreboard, setup_sessionboard),
+        )
+        .add_state::<MenuState>()
+        .add_systems(
+            Update,
+            (menu_button_system, menu_action, window_resize_system)
+                .run_if(in_state(AppState::Menu)),
+        )
+        .add_systems(OnExit(AppState::Menu), despawn_screen::<OnMenuScreen>);
     }
 }
 
@@ -27,13 +29,11 @@ pub enum MenuState {
     Disabled,
 }
 
-#[derive(Resource, Default)]
-pub struct RecentSessions {
-    pub sessions: VecDeque<u32>,
-}
-
 #[derive(Component)]
 pub struct MenuButton;
+
+#[derive(Component)]
+pub struct MinWindowWidth;
 
 #[derive(Component)]
 pub struct OnMenuScreen;
@@ -49,16 +49,16 @@ pub enum MenuButtonAction {
 }
 
 pub fn window_resize_system(
-    mut q: Query<&mut Visibility, With<Scoreboard>>,
+    mut q: Query<&mut Visibility, With<MinWindowWidth>>,
     mut resize_reader: EventReader<WindowResized>,
 ) {
-    let mut visibility = q.single_mut();
-
     for e in resize_reader.iter() {
-        if e.width < 1000.0 {
-            *visibility = Visibility::Hidden;
-        } else {
-            *visibility = Visibility::Visible;
+        for mut visibility in &mut q {
+            if e.width < 1000.0 {
+                *visibility = Visibility::Hidden;
+            } else {
+                *visibility = Visibility::Visible;
+            }
         }
     }
 }
@@ -113,7 +113,7 @@ fn spawn_menu_button(
         });
 }
 
-fn spawn_stat(builder: &mut ChildBuilder, font: Handle<Font>, text: &str, value: String) {
+fn spawn_label(builder: &mut ChildBuilder, font: Handle<Font>, text: &str, value: String) {
     builder.spawn(TextBundle::from_section(
         format!("{}: {}", text, value),
         TextStyle {
@@ -132,6 +132,59 @@ fn spawn_spacer(builder: &mut ChildBuilder) {
             ..default()
         },
     ));
+}
+#[derive(Component)]
+pub struct SessionsBoard;
+
+fn setup_sessionboard(mut commands: Commands, asset_server: Res<AssetServer>, pkv: Res<PkvStore>) {
+    commands
+        .spawn((
+            NodeBundle {
+                style: Style {
+                    left: Val::Percent(75.0),
+                    width: Val::Px(280.0),
+                    height: Val::Px(400.0),
+                    margin: UiRect::all(Val::Px(40.0)),
+                    padding: UiRect::top(Val::Px(10.0)),
+                    position_type: PositionType::Absolute,
+                    flex_direction: FlexDirection::Column,
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Start,
+                    ..default()
+                },
+                ..default()
+            },
+            OnMenuScreen,
+            MinWindowWidth,
+            SessionsBoard,
+        ))
+        .with_children(|builder| {
+            builder.spawn(
+                TextBundle::from_section(
+                    "Last 10 Sessions:",
+                    TextStyle {
+                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                        font_size: 25.0,
+                        color: colors::PRIMARY_COLOR,
+                    },
+                )
+                .with_style(Style {
+                    margin: UiRect::bottom(Val::Px(20.0)),
+                    ..default()
+                }),
+            );
+
+            let font = asset_server.load("fonts/FiraSans-Regular.ttf");
+            let recent_sessions = pkv.get::<RecentSessions>("recentSessions").unwrap();
+            for session in recent_sessions.sessions.iter().rev() {
+                spawn_label(
+                    builder,
+                    font.clone(),
+                    &session.date.to_string(),
+                    format!("{}%", session.percent_score.to_string()),
+                );
+            }
+        });
 }
 
 #[derive(Component)]
@@ -162,6 +215,7 @@ fn setup_scoreboard(
             },
             OnMenuScreen,
             Scoreboard,
+            MinWindowWidth,
         ))
         .with_children(|builder| {
             let font = asset_server.load("fonts/FiraSans-Regular.ttf");
@@ -180,19 +234,19 @@ fn setup_scoreboard(
                 }),
             );
 
-            spawn_stat(
+            spawn_label(
                 builder,
                 font.clone(),
                 "Current Level",
                 stats.current_level.to_string(),
             );
-            spawn_stat(
+            spawn_label(
                 builder,
                 font.clone(),
                 "Average Level Today",
                 stats.average_level_today.to_string(),
             );
-            spawn_stat(
+            spawn_label(
                 builder,
                 font.clone(),
                 "Sessions Today",
@@ -201,7 +255,7 @@ fn setup_scoreboard(
 
             spawn_spacer(builder);
 
-            spawn_stat(
+            spawn_label(
                 builder,
                 font.clone(),
                 "Total Sessions",

@@ -6,14 +6,12 @@ use bevy_pkv::PkvStore;
 use leafwing_input_manager::prelude::*;
 
 use colors::*;
-use controller::*;
 use database::*;
 use menu::*;
 use progress::*;
 use session::*;
 
 mod colors;
-mod controller;
 mod database;
 mod menu;
 mod progress;
