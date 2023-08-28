@@ -54,6 +54,7 @@ pub struct RecentSessions {
 
 #[derive(Debug, Resource, Serialize, Deserialize)]
 pub struct SettingValues {
+    pub manual_level: u32,
     pub base_trials: u32,
     pub trial_factor: u32,
     pub trial_exponent: u32,
@@ -66,6 +67,7 @@ pub struct SettingValues {
 impl Default for SettingValues {
     fn default() -> Self {
         Self {
+            manual_level: 1,
             base_trials: 20,
             trial_factor: 1,
             trial_exponent: 2,

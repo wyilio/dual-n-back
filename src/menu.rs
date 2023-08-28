@@ -12,6 +12,7 @@ impl Plugin for MenuPlugin {
             (setup_menu, setup_scoreboard, setup_sessionboard),
         )
         .add_state::<MenuState>()
+        .add_systems(Update, exit_to_menu)
         .add_systems(
             Update,
             (menu_button_system, menu_action, window_resize_system)
@@ -350,5 +351,15 @@ fn menu_action(
                 }
             }
         }
+    }
+}
+
+fn exit_to_menu(
+    app_state: Res<State<AppState>>,
+    mut change_app_state: ResMut<NextState<AppState>>,
+    keyboard_input: Res<Input<KeyCode>>,
+) {
+    if keyboard_input.just_pressed(KeyCode::Escape) {
+        change_app_state.set(AppState::Menu);
     }
 }

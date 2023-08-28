@@ -1,4 +1,4 @@
-use crate::{colors, despawn_screen, AppState, Mode, SettingValues};
+use crate::{colors, despawn_screen, AppState, Mode, PkvStore, SettingValues};
 use bevy::prelude::*;
 use bevy_egui::{egui, EguiContexts, EguiPlugin};
 use bevy_inspector_egui::prelude::*;
@@ -26,6 +26,7 @@ impl Plugin for SettingsPlugin {
 #[derive(Reflect, InspectorOptions, Debug, Resource, Serialize, Deserialize)]
 #[reflect(Resource, InspectorOptions)]
 pub struct StagedSettingValues {
+    pub manual_level: u32,
     pub base_trials: u32,
     pub trial_factor: u32,
     pub trial_exponent: u32,
@@ -38,6 +39,7 @@ pub struct StagedSettingValues {
 impl Default for StagedSettingValues {
     fn default() -> Self {
         Self {
+            manual_level: 1,
             base_trials: 20,
             trial_factor: 2,
             trial_exponent: 2,
@@ -55,6 +57,7 @@ pub struct OnSettingsScreen;
 pub fn setup_settings(mut commands: Commands, settings: Res<SettingValues>) {
     println!("setting up");
     commands.insert_resource(StagedSettingValues {
+        manual_level: settings.manual_level,
         base_trials: settings.base_trials,
         trial_factor: settings.trial_factor,
         trial_exponent: settings.trial_exponent,
@@ -69,6 +72,7 @@ pub fn settings_systems(
     mut commands: Commands,
     mut contexts: EguiContexts,
     mut staged_settings: ResMut<StagedSettingValues>,
+    mut pkv: ResMut<PkvStore>,
 ) {
     let ctx = contexts.ctx_mut();
     let screen_size = ctx.available_rect();
@@ -98,6 +102,13 @@ pub fn settings_systems(
                 ui.selectable_value(selected_mode, Mode::Manual, "Manual");
             });
 
+            if *selected_mode == Mode::Manual {
+                let mut manual_level = &mut staged_settings.manual_level;
+                ui.add(egui::Slider::new(manual_level, 1..=10).text("Manual Level"));
+            }
+
+            ui.separator();
+
             let mut base_trials = &mut staged_settings.base_trials;
             ui.add(egui::Slider::new(base_trials, 1..=100).text("Base Trials"));
 
@@ -107,11 +118,13 @@ pub fn settings_systems(
             let mut trial_exponent = &mut staged_settings.trial_exponent;
             ui.add(egui::Slider::new(trial_exponent, 1..=10).text("Trial Exponent"));
 
+            ui.separator();
+
             let mut raise_threshold = &mut staged_settings.raise_threshold;
-            ui.add(egui::Slider::new(raise_threshold, 0.0..=1.0).text("Raise Threshold"));
+            ui.add(egui::Slider::new(raise_threshold, 0.5..=1.0).text("Raise Threshold"));
 
             let mut lower_threshold = &mut staged_settings.lower_threshold;
-            ui.add(egui::Slider::new(lower_threshold, 0.0..=1.0).text("Lower Threshold"));
+            ui.add(egui::Slider::new(lower_threshold, 0.0..=0.49).text("Lower Threshold"));
 
             let mut chance_of_guaranteed_match = &mut staged_settings.chance_of_guaranteed_match;
             ui.add(
@@ -122,8 +135,8 @@ pub fn settings_systems(
             ui.separator();
 
             if ui.button("Save").clicked() {
-                println!("saving");
-                commands.insert_resource(SettingValues {
+                let settingValues = SettingValues {
+                    manual_level: staged_settings.manual_level,
                     base_trials: staged_settings.base_trials,
                     trial_factor: staged_settings.trial_factor,
                     trial_exponent: staged_settings.trial_exponent,
@@ -131,7 +144,10 @@ pub fn settings_systems(
                     raise_threshold: staged_settings.raise_threshold,
                     lower_threshold: staged_settings.lower_threshold,
                     chance_of_guaranteed_match: staged_settings.chance_of_guaranteed_match,
-                });
+                };
+                pkv.set("settings", &settingValues)
+                    .expect("failed to store settings");
+                commands.insert_resource(settingValues);
             }
         });
 }
