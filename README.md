@@ -15,7 +15,7 @@ This project uses Rust, Bevy, and egui. If you have proposed changes, feel free 
 
 # Notes
 
-- To exit a screen, hit <esc>
+- To exit a screen, hit \<esc\>
 - If you want to adjust your level, number of trials, or game thresholds, you can use the settings panel.
 
 # License
