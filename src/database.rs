@@ -15,8 +15,22 @@ impl Plugin for DatabasePlugin {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+// #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(
+    Default,
+    Clone,
+    Copy,
+    Reflect,
+    InspectorOptions,
+    Debug,
+    Resource,
+    Serialize,
+    Deserialize,
+    PartialEq,
+)]
+#[reflect(Resource, InspectorOptions)]
 pub enum Mode {
+    #[default]
     Auto,
     Manual,
 }

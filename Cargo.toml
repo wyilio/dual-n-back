@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 bevy-inspector-egui = "0.19"
+bevy_egui = "0.21.0"
 bevy_pkv = "0.8.0"
 chrono = { version = "0.4.26", features = ["serde"] }
 leafwing-input-manager = "0.10.0"

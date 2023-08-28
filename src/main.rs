@@ -1,6 +1,7 @@
 use std::time::Duration;
 
 use bevy::prelude::*;
+use bevy_egui::{egui, EguiContexts, EguiPlugin};
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_pkv::PkvStore;
 use leafwing_input_manager::prelude::*;
@@ -10,12 +11,14 @@ use database::*;
 use menu::*;
 use progress::*;
 use session::*;
+use settings::*;
 
 mod colors;
 mod database;
 mod menu;
 mod progress;
 mod session;
+mod settings;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, States, Default)]
 pub enum AppState {
@@ -47,5 +50,6 @@ fn main() {
         .add_plugins(DatabasePlugin)
         .add_plugins(MenuPlugin)
         .add_plugins(SessionPlugin)
+        .add_plugins(SettingsPlugin)
         .run();
 }
