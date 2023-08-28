@@ -3,8 +3,7 @@
 Dual-N Back is a mental game designed to challenge your working memory using two types of cues: visual and auditory.
 
 In each session, a 3x3 grid is displayed to players. During each trial, a specific square in the grid lights up while an alphabetic letter is simultaneously played. The player's objective is to determine if the same square and/or sound appeared exactly N rounds prior.
-The concept of the game was first introduced by Jaeggi et al. in a [2008 PNAS study](https://www.pnas.org/doi/10.1073/pnas.0801268105). Their intent was to explore whether fluid intelligence could be trained through the rigorous activity
-of Dual N-Back. Since then, several papers have been published with both supporting and conflicting results. 
+The concept of the game was first introduced by Jaeggi et al. in a [2008 PNAS study](https://www.pnas.org/doi/10.1073/pnas.0801268105).
 
 If you'd like to read more, check out this comprehensive [article](https://gwern.net/dnb-faq) by Gwern on the subject. 
 
