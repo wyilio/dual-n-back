@@ -1,8 +1,6 @@
 use crate::{colors, despawn_screen, AppState, Mode, PkvStore, SettingValues};
 use bevy::prelude::*;
 use bevy_egui::{egui, EguiContexts, EguiPlugin};
-use bevy_inspector_egui::prelude::*;
-use bevy_inspector_egui::quick::ResourceInspectorPlugin;
 use serde::{Deserialize, Serialize};
 
 pub struct SettingsPlugin;
@@ -10,7 +8,7 @@ pub struct SettingsPlugin;
 impl Plugin for SettingsPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(OnEnter(AppState::Settings), setup_settings)
-            .add_plugins(ResourceInspectorPlugin::<StagedSettingValues>::default())
+            .add_plugins(EguiPlugin)
             .add_systems(
                 Update,
                 settings_systems.run_if(state_exists_and_equals(AppState::Settings)),
@@ -22,9 +20,7 @@ impl Plugin for SettingsPlugin {
     }
 }
 
-// #[derive(Debug, Resource, Serialize, Deserialize)]
-#[derive(Reflect, InspectorOptions, Debug, Resource, Serialize, Deserialize)]
-#[reflect(Resource, InspectorOptions)]
+#[derive(Debug, Resource, Serialize, Deserialize)]
 pub struct StagedSettingValues {
     pub manual_level: u32,
     pub base_trials: u32,

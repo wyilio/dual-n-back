@@ -46,7 +46,6 @@ pub struct OnSettingsScreen;
 pub enum MenuButtonAction {
     Start,
     Settings,
-    Progress,
 }
 
 pub fn window_resize_system(
@@ -316,12 +315,6 @@ pub fn setup_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
                         "Settings",
                         MenuButtonAction::Settings,
                     );
-                    spawn_menu_button(
-                        builder,
-                        menu_font.clone(),
-                        "Progress",
-                        MenuButtonAction::Progress,
-                    );
                 });
         });
 }
@@ -343,10 +336,6 @@ fn menu_action(
                 }
                 MenuButtonAction::Settings => {
                     app_state.set(AppState::Settings);
-                    menu_state.set(MenuState::Disabled);
-                }
-                MenuButtonAction::Progress => {
-                    app_state.set(AppState::Progress);
                     menu_state.set(MenuState::Disabled);
                 }
             }

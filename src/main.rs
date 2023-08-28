@@ -2,21 +2,18 @@ use std::time::Duration;
 
 use bevy::prelude::*;
 use bevy_egui::{egui, EguiContexts, EguiPlugin};
-use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_pkv::PkvStore;
 use leafwing_input_manager::prelude::*;
 
 use colors::*;
 use database::*;
 use menu::*;
-use progress::*;
 use session::*;
 use settings::*;
 
 mod colors;
 mod database;
 mod menu;
-mod progress;
 mod session;
 mod settings;
 
@@ -44,7 +41,6 @@ fn main() {
         .insert_resource(PkvStore::new("Bevy_DNB", "Bevy_DNB_config"))
         .insert_resource(ClearColor(BACKGROUND_COLOR))
         .add_plugins(DefaultPlugins)
-        .add_plugins(WorldInspectorPlugin::new())
         .add_state::<AppState>()
         .add_systems(Startup, (setup_camera))
         .add_plugins(DatabasePlugin)
