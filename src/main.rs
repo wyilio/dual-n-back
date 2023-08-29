@@ -1,5 +1,10 @@
+#![windows_subsystem = "windows"]
+
 use bevy::prelude::*;
+use bevy::window::PrimaryWindow;
+use bevy::winit::WinitWindows;
 use bevy_pkv::PkvStore;
+use winit::window::Icon;
 
 use colors::*;
 use database::*;
@@ -12,6 +17,25 @@ mod database;
 mod menu;
 mod session;
 mod settings;
+
+pub fn set_window_icon(
+    main_window: Query<Entity, With<PrimaryWindow>>,
+    windows: NonSend<WinitWindows>,
+) {
+    let Some(primary) = windows.get_window(main_window.single()) else {return};
+
+    let (icon_rgba, icon_width, icon_height) = {
+        let image = image::open("brain.ico")
+            .expect("Failed to open icon path")
+            .into_rgba8();
+        let (width, height) = image.dimensions();
+        let rgba = image.into_raw();
+        (rgba, width, height)
+    };
+
+    let icon = Icon::from_rgba(icon_rgba, icon_width, icon_height).unwrap();
+    primary.set_window_icon(Some(icon));
+}
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, States, Default)]
 pub enum AppState {
@@ -37,6 +61,7 @@ fn main() {
         .insert_resource(PkvStore::new("Bevy_DNB", "Bevy_DNB_config"))
         .insert_resource(ClearColor(BACKGROUND_COLOR))
         .add_plugins(DefaultPlugins)
+        .add_startup_system(set_window_icon)
         .add_state::<AppState>()
         .add_systems(Startup, setup_camera)
         .add_plugins(DatabasePlugin)
