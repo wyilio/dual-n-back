@@ -1,6 +1,7 @@
-use crate::{colors, despawn_screen, AppState, Mode, PkvStore, SettingValues};
+use crate::{despawn_screen, AppState, Mode, SettingValues, StatValues};
 use bevy::prelude::*;
 use bevy_egui::{egui, EguiContexts, EguiPlugin};
+use bevy_pkv::PkvStore;
 use serde::{Deserialize, Serialize};
 
 pub struct SettingsPlugin;
@@ -22,7 +23,6 @@ impl Plugin for SettingsPlugin {
 
 #[derive(Debug, Resource, Serialize, Deserialize)]
 pub struct StagedSettingValues {
-    pub manual_level: u32,
     pub base_trials: u32,
     pub trial_factor: u32,
     pub trial_exponent: u32,
@@ -35,7 +35,6 @@ pub struct StagedSettingValues {
 impl Default for StagedSettingValues {
     fn default() -> Self {
         Self {
-            manual_level: 1,
             base_trials: 20,
             trial_factor: 2,
             trial_exponent: 2,
@@ -51,9 +50,7 @@ impl Default for StagedSettingValues {
 pub struct OnSettingsScreen;
 
 pub fn setup_settings(mut commands: Commands, settings: Res<SettingValues>) {
-    println!("setting up");
     commands.insert_resource(StagedSettingValues {
-        manual_level: settings.manual_level,
         base_trials: settings.base_trials,
         trial_factor: settings.trial_factor,
         trial_exponent: settings.trial_exponent,
@@ -69,6 +66,7 @@ pub fn settings_systems(
     mut contexts: EguiContexts,
     mut staged_settings: ResMut<StagedSettingValues>,
     mut pkv: ResMut<PkvStore>,
+    mut stats: ResMut<StatValues>,
 ) {
     let ctx = contexts.ctx_mut();
     let screen_size = ctx.available_rect();
@@ -99,7 +97,7 @@ pub fn settings_systems(
             });
 
             if *selected_mode == Mode::Manual {
-                let mut manual_level = &mut staged_settings.manual_level;
+                let mut manual_level = &mut stats.current_level;
                 ui.add(egui::Slider::new(manual_level, 1..=10).text("Manual Level"));
             }
 
@@ -132,7 +130,6 @@ pub fn settings_systems(
 
             if ui.button("Save").clicked() {
                 let settingValues = SettingValues {
-                    manual_level: staged_settings.manual_level,
                     base_trials: staged_settings.base_trials,
                     trial_factor: staged_settings.trial_factor,
                     trial_exponent: staged_settings.trial_exponent,

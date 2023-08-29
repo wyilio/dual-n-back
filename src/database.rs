@@ -2,7 +2,7 @@ use crate::AppState;
 use bevy::prelude::*;
 use bevy_inspector_egui::prelude::*;
 use bevy_pkv::PkvStore;
-use chrono::{serde::ts_seconds, DateTime, Datelike, Local, NaiveDate, Timelike};
+use chrono::{Datelike, Local, NaiveDate};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, VecDeque};
 
@@ -10,7 +10,7 @@ impl Plugin for DatabasePlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(SettingValues::default())
             .insert_resource(StatValues::default())
-            .add_systems(OnEnter(AppState::Menu), (sync_stats))
+            .add_systems(OnEnter(AppState::Menu), sync_stats)
             .add_systems(Startup, (setup_database, setup_time));
     }
 }
@@ -54,7 +54,6 @@ pub struct RecentSessions {
 
 #[derive(Debug, Resource, Serialize, Deserialize)]
 pub struct SettingValues {
-    pub manual_level: u32,
     pub base_trials: u32,
     pub trial_factor: u32,
     pub trial_exponent: u32,
@@ -67,7 +66,6 @@ pub struct SettingValues {
 impl Default for SettingValues {
     fn default() -> Self {
         Self {
-            manual_level: 1,
             base_trials: 20,
             trial_factor: 1,
             trial_exponent: 2,
@@ -96,7 +94,7 @@ impl Default for StatValues {
             average_level_today: 0.0,
             sessions_today: 0,
             total_sessions: 0,
-            last_sync_date: NaiveDate::from_ymd(now.year(), now.month(), now.day()),
+            last_sync_date: NaiveDate::from_ymd_opt(now.year(), now.month(), now.day()).unwrap(),
         }
     }
 }
@@ -121,7 +119,7 @@ fn reset_database(mut pkv: ResMut<PkvStore>) {
     pkv.clear().expect("failed to clear database");
 }
 
-fn setup_time(mut commands: Commands, mut pkv: ResMut<PkvStore>) {
+fn setup_time(mut commands: Commands) {
     let now = Local::now();
     let date = NaiveDate::from_ymd(now.year(), now.month(), now.day());
 
@@ -182,11 +180,7 @@ fn setup_database(mut commands: Commands, mut pkv: ResMut<PkvStore>) {
     }
 }
 
-fn sync_stats(
-    mut pkv: ResMut<PkvStore>,
-    mut stats: ResMut<StatValues>,
-    mut entries: ResMut<EntryValues>,
-) {
+fn sync_stats(mut pkv: ResMut<PkvStore>, mut stats: ResMut<StatValues>) {
     let date_today = Local::now().naive_local().date();
     if stats.last_sync_date != date_today {
         let mut new_stats = stats.clone();

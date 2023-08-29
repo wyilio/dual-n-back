@@ -1,9 +1,5 @@
-use std::time::Duration;
-
 use bevy::prelude::*;
-use bevy_egui::{egui, EguiContexts, EguiPlugin};
 use bevy_pkv::PkvStore;
-use leafwing_input_manager::prelude::*;
 
 use colors::*;
 use database::*;
@@ -42,7 +38,7 @@ fn main() {
         .insert_resource(ClearColor(BACKGROUND_COLOR))
         .add_plugins(DefaultPlugins)
         .add_state::<AppState>()
-        .add_systems(Startup, (setup_camera))
+        .add_systems(Startup, setup_camera)
         .add_plugins(DatabasePlugin)
         .add_plugins(MenuPlugin)
         .add_plugins(SessionPlugin)

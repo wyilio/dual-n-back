@@ -1,4 +1,3 @@
-use bevy::app::AppExit;
 use bevy::{prelude::*, window::WindowResized};
 
 use crate::{colors, despawn_screen, AppState, PkvStore, RecentSessions, StatValues};
@@ -73,17 +72,11 @@ pub fn menu_button_system(
         *color = match *interaction {
             Interaction::Pressed | Interaction::None => colors::PRESSED_BUTTON_LIGHT.into(),
             Interaction::Hovered => colors::HOVERED_BUTTON_LIGHT.into(),
-            Interaction::None => colors::PRIMARY_COLOR.into(),
         }
     }
 }
 
-fn spawn_menu_button(
-    builder: &mut ChildBuilder,
-    font: Handle<Font>,
-    text: &str,
-    menu_button_action: MenuButtonAction,
-) {
+fn spawn_menu_button(builder: &mut ChildBuilder, text: &str, menu_button_action: MenuButtonAction) {
     builder
         .spawn((
             ButtonBundle {
@@ -219,6 +212,7 @@ fn setup_scoreboard(
         ))
         .with_children(|builder| {
             let font = asset_server.load("fonts/FiraSans-Regular.ttf");
+
             builder.spawn(
                 TextBundle::from_section(
                     "Scoreboard:",
@@ -307,14 +301,9 @@ pub fn setup_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
                         }),
                     );
 
-                    spawn_menu_button(builder, menu_font.clone(), "Start", MenuButtonAction::Start);
+                    spawn_menu_button(builder, "Start", MenuButtonAction::Start);
 
-                    spawn_menu_button(
-                        builder,
-                        menu_font.clone(),
-                        "Settings",
-                        MenuButtonAction::Settings,
-                    );
+                    spawn_menu_button(builder, "Settings", MenuButtonAction::Settings);
                 });
         });
 }
@@ -325,17 +314,17 @@ fn menu_action(
         (Changed<Interaction>, With<MenuButton>),
     >,
     mut menu_state: ResMut<NextState<MenuState>>,
-    mut app_state: ResMut<NextState<AppState>>,
+    mut next_app_state: ResMut<NextState<AppState>>,
 ) {
     for (interaction, menu_button_action) in &interaction_query {
         if *interaction == Interaction::Pressed {
             match menu_button_action {
                 MenuButtonAction::Start => {
                     menu_state.set(MenuState::Disabled);
-                    app_state.set(AppState::Session);
+                    next_app_state.set(AppState::Session);
                 }
                 MenuButtonAction::Settings => {
-                    app_state.set(AppState::Settings);
+                    next_app_state.set(AppState::Settings);
                     menu_state.set(MenuState::Disabled);
                 }
             }
@@ -344,11 +333,10 @@ fn menu_action(
 }
 
 fn exit_to_menu(
-    app_state: Res<State<AppState>>,
-    mut change_app_state: ResMut<NextState<AppState>>,
+    mut next_app_state: ResMut<NextState<AppState>>,
     keyboard_input: Res<Input<KeyCode>>,
 ) {
     if keyboard_input.just_pressed(KeyCode::Escape) {
-        change_app_state.set(AppState::Menu);
+        next_app_state.set(AppState::Menu);
     }
 }

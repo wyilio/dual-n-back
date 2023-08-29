@@ -3,12 +3,9 @@ use crate::{
     SettingValues, StatValues,
 };
 use bevy::{prelude::*, sprite::MaterialMesh2dBundle};
-use bevy_inspector_egui::prelude::*;
 use bevy_pkv::PkvStore;
-use rand::{thread_rng, Rng};
-use std::collections::HashMap;
-use std::time::Duration;
-use std::{cmp, iter};
+use rand::Rng;
+use std::iter;
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 
@@ -154,11 +151,7 @@ pub fn setup_session_state(mut session_state: ResMut<NextState<SessionState>>) {
     session_state.set(SessionState::Active);
 }
 
-pub fn setup_grid(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
-) {
+pub fn setup_grid(mut commands: Commands) {
     commands.spawn((
         SpriteBundle {
             sprite: Sprite {
@@ -271,8 +264,6 @@ pub fn exit_session_system(
         + score.audio_false_positive
         + score.audio_false_negative;
     let percent_score = 100.0 * (num_correct) as f32 / (num_wrong + num_correct) as f32;
-
-    println!("Percent Score: {}", percent_score as u32);
 
     stats.average_level_today = round_float(
         (stats.average_level_today * stats.sessions_today as f32 + stats.current_level as f32)
@@ -505,7 +496,7 @@ pub fn setup_trial(
 
 pub fn trial_count_system(
     mut commands: Commands,
-    mut trial_label_query: Query<(&mut Text), (With<TrialLabel>)>,
+    mut trial_label_query: Query<&mut Text, With<TrialLabel>>,
     mut trial_count: ResMut<TrialCount>,
 ) {
     if trial_count.is_changed() {
@@ -633,7 +624,6 @@ pub fn trial_progression_system(
         }
 
         if trial_count.final_trial {
-            println!("Final trial finished {}", trial_count.current_count);
             session_state.set(SessionState::Exit);
             return;
         }
@@ -650,19 +640,16 @@ pub fn trial_progression_system(
                 let mut location_roll: f32 = rng.gen();
                 if location_roll < (settings.chance_of_guaranteed_match / 100.0) {
                     target_location = stimuli_generation.stimuli[i].0;
-                    println!("Guaranteed location match: {:?}", target_location);
                 }
 
                 // TODO: Remove code duplication
                 let mut audio_roll: f32 = rng.gen();
-                println!("Audio roll: {}", audio_roll);
                 print!(
                     "Setting chance of guaranteed match: {}",
                     settings.chance_of_guaranteed_match / 100.0
                 );
                 if audio_roll < (settings.chance_of_guaranteed_match / 100.0) {
                     target_audio = stimuli_generation.stimuli[i].1;
-                    println!("Guaranteed audio match: {:?}", target_audio);
                 }
                 new_stimuli.push((target_location, target_audio));
             }
@@ -693,7 +680,6 @@ pub fn trial_progression_system(
 
         trial_count.current_count = trial_count.current_count - 1;
         if trial_count.current_count == 0 {
-            println!("Final trial");
             trial_count.final_trial = true;
         }
     }
