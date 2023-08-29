@@ -6,6 +6,8 @@ use chrono::{Datelike, Local, NaiveDate};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, VecDeque};
 
+pub struct DatabasePlugin;
+
 impl Plugin for DatabasePlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(SettingValues::default())
@@ -15,20 +17,7 @@ impl Plugin for DatabasePlugin {
     }
 }
 
-// #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[derive(
-    Default,
-    Clone,
-    Copy,
-    Reflect,
-    InspectorOptions,
-    Debug,
-    Resource,
-    Serialize,
-    Deserialize,
-    PartialEq,
-)]
-#[reflect(Resource, InspectorOptions)]
+#[derive(Default, Clone, Copy, Debug, Resource, Serialize, Deserialize, PartialEq)]
 pub enum Mode {
     #[default]
     Auto,
@@ -112,9 +101,7 @@ pub struct EntryValues {
     pub day_entries: HashMap<NaiveDate, DayEntry>,
 }
 
-pub struct DatabasePlugin;
-
-fn reset_database(mut pkv: ResMut<PkvStore>) {
+pub fn clear_database(mut pkv: ResMut<PkvStore>) {
     info!("Clearing Database");
     pkv.clear().expect("failed to clear database");
 }
@@ -126,7 +113,7 @@ fn setup_time(mut commands: Commands) {
     commands.insert_resource(CurrentDate { date });
 }
 
-fn setup_database(mut commands: Commands, mut pkv: ResMut<PkvStore>) {
+pub fn setup_database(mut commands: Commands, mut pkv: ResMut<PkvStore>) {
     if let Ok(settings) = pkv.get::<SettingValues>("settingValues") {
         info!("Loaded Prior Settings");
         commands.insert_resource(settings);

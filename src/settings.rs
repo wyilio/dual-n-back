@@ -1,4 +1,4 @@
-use crate::{despawn_screen, AppState, Mode, SettingValues, StatValues};
+use crate::{despawn_screen, setup_database, AppState, Mode, SettingValues, StatValues};
 use bevy::prelude::*;
 use bevy_egui::{egui, EguiContexts, EguiPlugin};
 use bevy_pkv::PkvStore;
@@ -134,9 +134,17 @@ pub fn settings_systems(
                     lower_threshold: staged_settings.lower_threshold,
                     chance_of_guaranteed_match: staged_settings.chance_of_guaranteed_match,
                 };
-                pkv.set("settings", &setting_values)
+                pkv.set("settingValues", &setting_values)
                     .expect("failed to store settings");
                 commands.insert_resource(setting_values);
+            }
+
+            if ui.button("Reset Default Settings").clicked() {
+                let setting_values = SettingValues::default();
+                pkv.set("settingValues", &setting_values)
+                    .expect("failed to store settings");
+                commands.insert_resource(setting_values);
+                commands.insert_resource(StagedSettingValues::default());
             }
         });
 }
