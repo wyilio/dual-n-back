@@ -11,12 +11,19 @@ This project owes its existence to [Brain Workshop](https://brainworkshop.source
 
 # Implementation Details
 
-This project uses Rust, Bevy, and egui. If you have proposed changes, feel free to write an issue. 
+This project uses Rust, [Bevy](https://github.com/bevyengine/bevy), [bevy_pkv](https://github.com/johanhelsing/bevy_pkv), and [bevy_egui](https://github.com/mvlabat/bevy_egui).
+
+If you have proposed changes, feel free to write an issue. 
 
 # Notes
 
 - To exit a screen, hit \<esc\>
 - If you want to adjust your level, number of trials, or game thresholds, you can use the settings panel.
+- Trials per session are determined by: Base Trials + Trial Factor^{Trial Exponent}
+- Raise threshold is the percent score required to advance a n-back level
+- Lower threshold is the percent score resulting in a level reduction
+- You can choose to use thresholds with auto mode or manually set your level in manual mode
+- Chance of guaranteed match is how likely the game produces a definite position or audio match
 
 # License
 
