@@ -141,12 +141,6 @@ pub struct OnSessionScreen;
 #[derive(Debug, Resource)]
 pub struct TrialTimer(pub Timer);
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum Tile {
-    Occupied,
-    Empty,
-}
-
 pub fn setup_session_state(mut session_state: ResMut<NextState<SessionState>>) {
     session_state.set(SessionState::Active);
 }
@@ -248,15 +242,12 @@ pub fn keyboard_input_system(
 }
 
 pub fn exit_session_system(
-    mut commands: Commands,
     mut app_state: ResMut<NextState<AppState>>,
     mut pkv: ResMut<PkvStore>,
     mut stats: ResMut<StatValues>,
-    mut entries: ResMut<EntryValues>,
     current_date: Res<CurrentDate>,
     score: ResMut<Score>,
     settings: ResMut<SettingValues>,
-    trial_count: ResMut<TrialCount>,
 ) {
     let num_correct = score.position_correct + score.audio_correct;
     let num_wrong = score.position_false_positive
@@ -286,7 +277,7 @@ pub fn exit_session_system(
     if let Ok(entries) = pkv.get::<EntryValues>("entryValues") {
         let mut new_entries = entries.clone();
 
-        let mut entry = new_entries
+        let entry = new_entries
             .day_entries
             .entry(current_date.date)
             .or_insert_with(|| DayEntry {
@@ -495,9 +486,8 @@ pub fn setup_trial(
 }
 
 pub fn trial_count_system(
-    mut commands: Commands,
     mut trial_label_query: Query<&mut Text, With<TrialLabel>>,
-    mut trial_count: ResMut<TrialCount>,
+    trial_count: ResMut<TrialCount>,
 ) {
     if trial_count.is_changed() {
         for mut text in &mut trial_label_query {
@@ -637,13 +627,12 @@ pub fn trial_progression_system(
                 let mut target_location = TargetLocation::random();
                 let mut target_audio = TargetAudio::random();
 
-                let mut location_roll: f32 = rng.gen();
+                let location_roll: f32 = rng.gen();
                 if location_roll < (settings.chance_of_guaranteed_match / 100.0) {
                     target_location = stimuli_generation.stimuli[i].0;
                 }
 
-                // TODO: Remove code duplication
-                let mut audio_roll: f32 = rng.gen();
+                let audio_roll: f32 = rng.gen();
                 print!(
                     "Setting chance of guaranteed match: {}",
                     settings.chance_of_guaranteed_match / 100.0
@@ -706,7 +695,6 @@ pub fn play_sound(commands: &mut Commands, asset_server: &Res<AssetServer>, audi
 
 pub fn target_transition_system(
     mut target_query: Query<(&mut Visibility, &mut DisplayTargetTime), With<TargetLocation>>,
-    mut commands: Commands,
     time: Res<Time>,
 ) {
     for (mut visibility, mut display_target_time) in &mut target_query {

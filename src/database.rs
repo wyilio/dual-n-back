@@ -121,7 +121,7 @@ fn reset_database(mut pkv: ResMut<PkvStore>) {
 
 fn setup_time(mut commands: Commands) {
     let now = Local::now();
-    let date = NaiveDate::from_ymd(now.year(), now.month(), now.day());
+    let date = NaiveDate::from_ymd_opt(now.year(), now.month(), now.day()).unwrap();
 
     commands.insert_resource(CurrentDate { date });
 }
@@ -180,7 +180,7 @@ fn setup_database(mut commands: Commands, mut pkv: ResMut<PkvStore>) {
     }
 }
 
-fn sync_stats(mut pkv: ResMut<PkvStore>, mut stats: ResMut<StatValues>) {
+fn sync_stats(mut pkv: ResMut<PkvStore>, stats: ResMut<StatValues>) {
     let date_today = Local::now().naive_local().date();
     if stats.last_sync_date != date_today {
         let mut new_stats = stats.clone();

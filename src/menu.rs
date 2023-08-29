@@ -106,7 +106,7 @@ fn spawn_menu_button(builder: &mut ChildBuilder, text: &str, menu_button_action:
         });
 }
 
-fn spawn_label(builder: &mut ChildBuilder, font: Handle<Font>, text: &str, value: String) {
+fn spawn_label(builder: &mut ChildBuilder, text: &str, value: String) {
     builder.spawn(TextBundle::from_section(
         format!("{}: {}", text, value),
         TextStyle {
@@ -167,12 +167,10 @@ fn setup_sessionboard(mut commands: Commands, asset_server: Res<AssetServer>, pk
                 }),
             );
 
-            let font = asset_server.load("fonts/FiraSans-Regular.ttf");
             let recent_sessions = pkv.get::<RecentSessions>("recentSessions").unwrap();
             for session in recent_sessions.sessions.iter().rev() {
                 spawn_label(
                     builder,
-                    font.clone(),
                     &session.date.to_string(),
                     format!("{}%", session.percent_score.to_string()),
                 );
@@ -211,8 +209,6 @@ fn setup_scoreboard(
             MinWindowWidth,
         ))
         .with_children(|builder| {
-            let font = asset_server.load("fonts/FiraSans-Regular.ttf");
-
             builder.spawn(
                 TextBundle::from_section(
                     "Scoreboard:",
@@ -228,33 +224,18 @@ fn setup_scoreboard(
                 }),
             );
 
+            spawn_label(builder, "Current DNB", stats.current_level.to_string());
+
             spawn_label(
                 builder,
-                font.clone(),
-                "Current DNB",
-                stats.current_level.to_string(),
-            );
-            spawn_label(
-                builder,
-                font.clone(),
                 "Average DNB",
                 stats.average_level_today.to_string(),
             );
-            spawn_label(
-                builder,
-                font.clone(),
-                "Sessions Today",
-                stats.sessions_today.to_string(),
-            );
+            spawn_label(builder, "Sessions Today", stats.sessions_today.to_string());
 
             spawn_spacer(builder);
 
-            spawn_label(
-                builder,
-                font.clone(),
-                "Total Sessions",
-                stats.total_sessions.to_string(),
-            );
+            spawn_label(builder, "Total Sessions", stats.total_sessions.to_string());
         });
 }
 

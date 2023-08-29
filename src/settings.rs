@@ -70,10 +70,6 @@ pub fn settings_systems(
 ) {
     let ctx = contexts.ctx_mut();
     let screen_size = ctx.available_rect();
-    let window_size = egui::Vec2 {
-        x: screen_size.width(),
-        y: screen_size.height(),
-    };
     let position = egui::Pos2 {
         x: screen_size.width() / 2.0,
         y: screen_size.height() / 2.0,
@@ -89,7 +85,7 @@ pub fn settings_systems(
             ui.set_height(screen_size.height() / 2.0);
             ui.separator();
 
-            let mut selected_mode = &mut staged_settings.mode;
+            let selected_mode = &mut staged_settings.mode;
             ui.horizontal(|ui| {
                 ui.label("Mode:");
                 ui.selectable_value(selected_mode, Mode::Auto, "Auto");
@@ -97,30 +93,30 @@ pub fn settings_systems(
             });
 
             if *selected_mode == Mode::Manual {
-                let mut manual_level = &mut stats.current_level;
+                let manual_level = &mut stats.current_level;
                 ui.add(egui::Slider::new(manual_level, 1..=10).text("Manual Level"));
             }
 
             ui.separator();
 
-            let mut base_trials = &mut staged_settings.base_trials;
+            let base_trials = &mut staged_settings.base_trials;
             ui.add(egui::Slider::new(base_trials, 1..=100).text("Base Trials"));
 
-            let mut trial_factor = &mut staged_settings.trial_factor;
+            let trial_factor = &mut staged_settings.trial_factor;
             ui.add(egui::Slider::new(trial_factor, 1..=10).text("Trial Factor"));
 
-            let mut trial_exponent = &mut staged_settings.trial_exponent;
+            let trial_exponent = &mut staged_settings.trial_exponent;
             ui.add(egui::Slider::new(trial_exponent, 1..=10).text("Trial Exponent"));
 
             ui.separator();
 
-            let mut raise_threshold = &mut staged_settings.raise_threshold;
+            let raise_threshold = &mut staged_settings.raise_threshold;
             ui.add(egui::Slider::new(raise_threshold, 0.5..=1.0).text("Raise Threshold"));
 
-            let mut lower_threshold = &mut staged_settings.lower_threshold;
+            let lower_threshold = &mut staged_settings.lower_threshold;
             ui.add(egui::Slider::new(lower_threshold, 0.0..=0.49).text("Lower Threshold"));
 
-            let mut chance_of_guaranteed_match = &mut staged_settings.chance_of_guaranteed_match;
+            let chance_of_guaranteed_match = &mut staged_settings.chance_of_guaranteed_match;
             ui.add(
                 egui::Slider::new(chance_of_guaranteed_match, 0.0..=1.0)
                     .text("Chance of Guaranteed Match"),
@@ -129,7 +125,7 @@ pub fn settings_systems(
             ui.separator();
 
             if ui.button("Save").clicked() {
-                let settingValues = SettingValues {
+                let setting_values = SettingValues {
                     base_trials: staged_settings.base_trials,
                     trial_factor: staged_settings.trial_factor,
                     trial_exponent: staged_settings.trial_exponent,
@@ -138,9 +134,9 @@ pub fn settings_systems(
                     lower_threshold: staged_settings.lower_threshold,
                     chance_of_guaranteed_match: staged_settings.chance_of_guaranteed_match,
                 };
-                pkv.set("settings", &settingValues)
+                pkv.set("settings", &setting_values)
                     .expect("failed to store settings");
-                commands.insert_resource(settingValues);
+                commands.insert_resource(setting_values);
             }
         });
 }
