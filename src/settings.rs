@@ -94,7 +94,7 @@ pub fn settings_systems(
 
             if *selected_mode == Mode::Manual {
                 let manual_level = &mut stats.current_level;
-                ui.add(egui::Slider::new(manual_level, 1..=10).text("Manual Level"));
+                ui.add(egui::Slider::new(manual_level, 1..=50).text("Manual Level"));
             }
 
             ui.separator();
