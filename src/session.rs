@@ -633,7 +633,7 @@ pub fn trial_progression_system(
                 }
 
                 let audio_roll: f32 = rng.gen();
-                print!(
+                println!(
                     "Setting chance of guaranteed match: {}",
                     settings.chance_of_guaranteed_match / 100.0
                 );
