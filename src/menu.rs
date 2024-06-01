@@ -269,7 +269,7 @@ pub fn setup_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
                 .with_children(|builder| {
                     builder.spawn(
                         TextBundle::from_section(
-                            "Dual-N Back Menu",
+                            "Dual N-Back Menu",
                             TextStyle {
                                 font: menu_font.clone(),
                                 font_size: 45.0,
