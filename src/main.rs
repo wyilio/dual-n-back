@@ -22,7 +22,9 @@ pub fn set_window_icon(
     main_window: Query<Entity, With<PrimaryWindow>>,
     windows: NonSend<WinitWindows>,
 ) {
-    let Some(primary) = windows.get_window(main_window.single()) else {return};
+    let Some(primary) = windows.get_window(main_window.single()) else {
+        return;
+    };
 
     let (icon_rgba, icon_width, icon_height) = {
         let image = image::open("brain.ico")
