@@ -4,6 +4,8 @@ use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 use bevy::winit::WinitWindows;
 use bevy_pkv::PkvStore;
+use tracing::Level;
+use tracing_subscriber::EnvFilter;
 use winit::window::Icon;
 
 use colors::*;
@@ -59,6 +61,15 @@ pub fn despawn_screen<T: Component>(to_despawn: Query<Entity, With<T>>, mut comm
 }
 
 fn main() {
+    dotenv::dotenv().ok();
+
+    let filter = EnvFilter::builder()
+        .with_default_directive(Level::INFO.into())
+        .with_env_var(EnvFilter::DEFAULT_ENV)
+        .from_env_lossy();
+    let subscriber = tracing_subscriber::fmt().with_env_filter(filter).finish();
+    tracing::subscriber::set_global_default(subscriber).unwrap();
+
     App::new()
         .insert_resource(PkvStore::new("Bevy_DNB", "Bevy_DNB_config"))
         .insert_resource(ClearColor(BACKGROUND_COLOR))
