@@ -25,6 +25,13 @@ If you have proposed changes, feel free to write an issue.
 - You can choose to use thresholds with auto mode or manually set your level in manual mode
 - Chance of guaranteed match is how likely the game produces a definite position or audio match
 
+# TODOs
+- [ ] Add an automatic feedback option in settings while in-game
+- [ ] Heatmap 
+- [ ] Visualizations of progress over time
+- [ ] Data export options
+- [ ] MacOS and Linux support
+
 # License
 
 This project is dual-licensed under Apache 2.0 and MIT.
