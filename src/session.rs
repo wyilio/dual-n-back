@@ -466,23 +466,37 @@ pub fn setup_trial(
         audio_false_negative: 0,
     });
 
-    commands.spawn((
-        TextBundle::from_section(
-            "Trials Left: ",
-            TextStyle {
-                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                font_size: 40.0,
-                color: colors::PRIMARY_COLOR.into(),
+    let text_style = TextStyle {
+        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+        font_size: 40.0,
+        color: colors::PRIMARY_COLOR.into(),
+    };
+
+    commands
+        .spawn((
+            NodeBundle {
+                style: Style {
+                    position_type: PositionType::Absolute,
+                    margin: UiRect::all(Val::Px(30.0)),
+                    flex_direction: FlexDirection::Column,
+                    align_items: AlignItems::FlexStart,
+                    ..Default::default()
+                },
+                ..Default::default()
             },
-        )
-        .with_style(Style {
-            position_type: PositionType::Absolute,
-            margin: UiRect::all(Val::Px(30.0)),
-            ..Default::default()
-        }),
-        OnSessionScreen,
-        TrialLabel,
-    ));
+            OnSessionScreen,
+        ))
+        .with_children(|parent| {
+            parent.spawn((
+                TextBundle::from_section("Trials Left: ", text_style.clone()),
+                TrialLabel,
+            ));
+
+            parent.spawn((TextBundle::from_section(
+                format!("Level: {}", stats.current_level),
+                text_style,
+            ),));
+        });
 }
 
 pub fn trial_count_system(
