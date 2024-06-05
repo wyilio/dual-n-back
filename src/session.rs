@@ -264,7 +264,7 @@ pub fn exit_session_system(
     stats.sessions_today += 1;
     stats.total_sessions += 1;
 
-    if percent_score > settings.raise_threshold {
+    if percent_score > (settings.raise_threshold * 100.0) {
         stats.current_level += 1;
         println!("Level Up!");
     } else if percent_score < settings.lower_threshold {
